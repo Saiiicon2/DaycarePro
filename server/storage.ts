@@ -30,9 +30,13 @@ import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
 
+  getUsers(): Promise<User[]>;
+  createUser(user: UpsertUser): Promise<User>;
+  getUsers(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  
   // Daycare operations
   getDaycares(): Promise<Daycare[]>;
   getDaycare(id: number): Promise<Daycare | undefined>;
@@ -81,11 +85,39 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+
+  async getUsers(): Promise<User[]> {
+  return await db.select().from(users);
+}
+
+async createUser(user: UpsertUser): Promise<User> {
+  const [newUser] = await db.insert(users).values(user).returning();
+  return newUser;
+}
   // User operations (required for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+  const [user] = await db
+  .select({
+    id: users.id,
+    email: users.email,
+    password: users.password, // ✅ include this explicitly
+    firstName: users.firstName,
+    lastName: users.lastName,
+    profileImageUrl: users.profileImageUrl,
+    role: users.role,
+    daycareId: users.daycareId,
+    createdAt: users.createdAt,
+    updatedAt: users.updatedAt,
+  })
+  .from(users)
+  .where(eq(users.email, email));
+  return user;
+}
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
@@ -149,6 +181,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getParentByEmail(email: string): Promise<Parent | undefined> {
+    console.log('email:',email);
     const [parent] = await db.select().from(parents).where(eq(parents.email, email));
     return parent;
   }

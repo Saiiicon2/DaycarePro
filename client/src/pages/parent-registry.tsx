@@ -24,7 +24,7 @@ export default function ParentRegistry() {
   const { toast } = useToast();
 
   const { data: parents, isLoading: parentsLoading } = useQuery({
-    queryKey: ["/api/parents", searchQuery],
+    
     queryKey: searchQuery ? ["/api/parents", { search: searchQuery }] : ["/api/parents"],
   });
 

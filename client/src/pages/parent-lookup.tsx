@@ -182,7 +182,7 @@ export default function ParentLookup() {
                         <div className="space-y-4">
                           <div>
                             <p className="text-sm font-medium text-slate-700 dark:text-gray-200">Total Outstanding</p>
-                            <p className="text-2xl font-bold text-red-600">${lookupResult.parent.totalOwed}</p>
+                            <p className="text-2xl font-bold text-red-600">R{lookupResult.parent.totalOwed}</p>
                           </div>
                           
                           <div>

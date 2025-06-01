@@ -9,13 +9,15 @@ export default function Landing() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <div className="flex items-center justify-center mb-6">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mr-4">
+            {/* <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mr-4">
               <Shield className="w-8 h-8 text-white" />
             </div>
+            
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">DaycarePay</h1>
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white">EduConnect</h1>
               <p className="text-lg text-gray-600 dark:text-gray-300">Ecosystem Manager</p>
-            </div>
+            </div> */}
+            <img src="../src/img/logoedu[trans].png"></img>
           </div>
           
           <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
@@ -31,7 +33,7 @@ export default function Landing() {
           <Button 
             size="lg" 
             className="text-lg px-8 py-4"
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/login'}
           >
             Access Dashboard
           </Button>
@@ -139,7 +141,7 @@ export default function Landing() {
             size="lg" 
             variant="outline"
             className="text-lg px-8 py-4 mr-4"
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/login'}
           >
             Get Started
           </Button>

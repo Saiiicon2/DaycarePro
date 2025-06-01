@@ -163,7 +163,7 @@ export default function PaymentTracking() {
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Total Amount</p>
                     <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                      ${getTotalAmount()}
+                      R{getTotalAmount()}
                     </p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-green-600" />
@@ -177,7 +177,7 @@ export default function PaymentTracking() {
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Overdue Amount</p>
                     <p className="text-2xl font-bold text-red-600">
-                      ${getOverdueAmount()}
+                      R{getOverdueAmount()}
                     </p>
                   </div>
                   <AlertCircle className="h-8 w-8 text-red-600" />

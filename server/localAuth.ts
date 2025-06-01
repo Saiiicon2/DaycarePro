@@ -2,6 +2,8 @@ import express from "express";
 import session from "express-session";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+import { type User } from "@shared/schema";
+import { randomUUID } from "crypto"; // at the top if not already there
 
 export function setupLocalAuth(app: express.Express) {
   app.use(session({
@@ -16,38 +18,58 @@ export function setupLocalAuth(app: express.Express) {
   }));
 
   // Login route
-  app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-    
-    try {
-      // For development, create a default admin user if none exists
-      const users = await storage.getUsers();
-      if (users.length === 0) {
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        await storage.createUser({
-          email: 'admin@daycare.com',
-          password: hashedPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'admin'
-        });
-      }
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+  console.log("🟡 Login attempt:", email);
 
-      const user = await storage.getUserByEmail(email);
-      if (!user || !await bcrypt.compare(password, user.password)) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
+  try {
+    // 1. Ensure users file is initialized
+    const users = await storage.getUsers();
+    console.log("📂 Loaded users:", users);
 
-      // Remove password from session data
-      const { password: _, ...userWithoutPassword } = user;
-      (req.session as any).user = userWithoutPassword;
-      
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Login failed' });
+    if (users.length === 0) {
+      console.log("⚠️ No users found, creating default admin...");
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+     // Inside your auto-create admin block
+await storage.createUser({
+  id: randomUUID(), // 👈 Add this line
+  email: "admin@daycare.com",
+  password: hashedPassword,
+  firstName: "Admin",
+  lastName: "User",
+  role: "admin"
+});
+      console.log("✅ Default admin created");
     }
-  });
+
+    // 2. Try to find the user
+    const user = await storage.getUserByEmail(email);
+    console.log("🔍 Found user:", user);
+
+    if (!user||!user.password) {
+      console.log("❌ No user found with that email");
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 3. Check password
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      console.log("❌ Password mismatch");
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 4. Store user in session
+    const { password: _, ...userWithoutPassword } = user;
+    (req.session as any).user = userWithoutPassword;
+    console.log("✅ Login successful. Session set:", req.session.user);
+
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error("🚨 Login error:", error);
+    res.status(500).json({ message: "Login failed" });
+  }
+});
+
 
   // Logout route
   app.post('/api/auth/logout', (req, res) => {

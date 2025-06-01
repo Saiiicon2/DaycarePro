@@ -12,17 +12,23 @@ import ChildProfiles from "@/pages/child-profiles";
 import DaycareCenters from "@/pages/daycare-centers";
 import PaymentTracking from "@/pages/payment-tracking";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/login";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) return null; // ⏳ Don't render until auth is ready
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
+      <Route path="/login" component={Login} /> {/* ✅ Always available */}
+
+      {!isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
         <>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Dashboard} /> {/* Optional fallback */}
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/parent-lookup" component={ParentLookup} />
           <Route path="/parent-registry" component={ParentRegistry} />
           <Route path="/child-profiles" component={ChildProfiles} />
@@ -30,10 +36,12 @@ function Router() {
           <Route path="/payment-tracking" component={PaymentTracking} />
         </>
       )}
+
       <Route component={NotFound} />
     </Switch>
   );
 }
+
 
 function App() {
   return (

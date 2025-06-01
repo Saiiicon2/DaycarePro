@@ -8,15 +8,17 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Simple users table for local auth
 export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  email: text("email").unique().notNull(),
-  password: text("password").notNull(),
+  id: text("id").primaryKey(),
+  email: text("email").unique(),
+  password: text("password").notNull(), // ✅ Ensure this exists
   firstName: text("first_name"),
   lastName: text("last_name"),
-  role: text("role").default("admin"),
-  createdAt: integer("created_at"),
+  profileImageUrl: text("profile_image_url"),
+  role: text("role").notNull().default("daycare_admin"),
+  daycareId: integer("daycare_id"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
 });
 
 // Daycare centers
@@ -26,7 +28,11 @@ export const daycares = sqliteTable("daycares", {
   address: text("address").notNull(),
   phone: text("phone"),
   email: text("email"),
-  createdAt: integer("created_at"),
+  licenseNumber: text("license_number"),
+  capacity: integer("capacity"),
+  isActive: integer("is_active", { mode: "boolean" }).default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
 // Parents
@@ -37,9 +43,13 @@ export const parents = sqliteTable("parents", {
   email: text("email").unique().notNull(),
   phone: text("phone"),
   address: text("address"),
-  paymentTier: text("payment_tier").default("good"), // good, mid, poor
+  emergencyContact: text("emergency_contact"), // 👈 add this
+  notes: text("notes"), // 👈 add this
+   isBlacklisted: integer("is_blacklisted", { mode: "boolean" }).default(false),
+  paymentTier: text("payment_tier").default("good"),
   totalOwed: real("total_owed").default(0),
   createdAt: integer("created_at"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
 // Children
@@ -50,6 +60,12 @@ export const children = sqliteTable("children", {
   dateOfBirth: text("date_of_birth"), // Store as ISO string
   parentId: integer("parent_id").references(() => parents.id),
   createdAt: integer("created_at"),
+  currentDaycareId: integer("current_daycare_id"),
+  allergies: text("allergies"),
+  medicalNotes: text("medical_notes"),
+  emergencyContacts: text("emergency_contacts"),
+  isActive: integer("is_active", { mode: "boolean" }).default(true),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
 // Enrollments
@@ -60,8 +76,10 @@ export const enrollments = sqliteTable("enrollments", {
   startDate: text("start_date"),
   endDate: text("end_date"),
   status: text("status").default("active"), // active, inactive, pending
+  reasonForLeaving: text("reason_for_leaving"),
   monthlyFee: real("monthly_fee"),
   createdAt: integer("created_at"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
 // Payments
@@ -74,7 +92,9 @@ export const payments = sqliteTable("payments", {
   paidDate: text("paid_date"),
   status: text("status").default("pending"), // pending, paid, overdue
   paymentMethod: text("payment_method"),
+  notes: text("notes"),
   createdAt: integer("created_at"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
 // Payment alerts

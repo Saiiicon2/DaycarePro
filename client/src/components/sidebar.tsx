@@ -95,7 +95,7 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-slate-200 dark:border-gray-700 flex flex-col z-50">
       {/* Logo */}
       <div className="p-6 border-b border-slate-200 dark:border-gray-700">
-        <div className="flex items-center space-x-3">
+        {/* <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
             <Shield className="h-6 w-6 text-white" />
           </div>
@@ -103,7 +103,9 @@ export default function Sidebar() {
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">DaycarePay</h1>
             <p className="text-sm text-slate-500 dark:text-gray-400">Ecosystem Manager</p>
           </div>
-        </div>
+          
+        </div> */}
+        <img src="../src/img/logoedu[trans].png"></img>
       </div>
 
       {/* User Profile */}

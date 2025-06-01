@@ -205,7 +205,8 @@ app.get('/', (req, res) => {
                     const response = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
+                        body: JSON.stringify({ email, password }),
+                        credentials: "include",
                     });
                     
                     if (response.ok) {
@@ -255,7 +256,8 @@ app.get('/', (req, res) => {
                 const response = await fetch('/api/parents', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(parent)
+                    body: JSON.stringify(parent),
+                    credentials: "include"
                 });
                 
                 if (response.ok) {
