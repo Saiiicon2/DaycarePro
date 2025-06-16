@@ -168,7 +168,24 @@ export type InsertPaymentAlert = typeof paymentAlerts.$inferInsert;
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users);
 export const insertParentSchema = createInsertSchema(parents);
-export const insertChildSchema = createInsertSchema(children);
+export const insertChildSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
+  parentId: z.number().int().positive(),
+  createdAt: z.number().optional(),
+  currentDaycareId: z.number().optional(),
+  allergies: z.string().optional(),
+  medicalNotes: z.string().optional(),
+  emergencyContacts: z.string().optional(),
+  isActive: z.boolean().optional(),
+  updatedAt: z.number().optional(),
+});
+
+
+
 export const insertDaycareSchema = createInsertSchema(daycares);
 export const insertEnrollmentSchema = createInsertSchema(enrollments);
 export const insertPaymentSchema = createInsertSchema(payments);

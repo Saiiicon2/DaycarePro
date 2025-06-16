@@ -23,10 +23,13 @@ export default function ParentRegistry() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: parents, isLoading: parentsLoading } = useQuery({
-    
-    queryKey: searchQuery ? ["/api/parents", { search: searchQuery }] : ["/api/parents"],
-  });
+  const url = searchQuery
+  ? `http://localhost:5000/api/parents?search=${encodeURIComponent(searchQuery)}`
+  : `http://localhost:5000/api/parents`;
+
+const { data: parents, isLoading } = useQuery({
+  queryKey: [url],
+});
 
   const createParentMutation = useMutation({
     mutationFn: async (parentData: any) => {
@@ -51,28 +54,32 @@ export default function ParentRegistry() {
   });
 
   const createChildMutation = useMutation({
-    mutationFn: async (childData: any) => {
-      const response = await apiRequest("POST", "/api/children", childData);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/parents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/children"] });
-      setShowChildForm(false);
-      setSelectedParent(null);
-      toast({
-        title: "Success",
-        description: "Child profile created successfully",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create child profile",
-        variant: "destructive",
-      });
-    },
-  });
+  mutationFn: async (childData: any) => {
+    const payload = {
+      ...childData,
+      dateOfBirth: new Date(childData.dateOfBirth).toISOString(),
+    };
+    const response = await apiRequest("POST", "/api/children", payload);
+    return response.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/parents"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+    setShowChildForm(false);
+    setSelectedParent(null);
+    toast({
+      title: "Success",
+      description: "Child profile created successfully",
+    });
+  },
+  onError: (error: any) => {
+    toast({
+      title: "Error",
+      description: error.message || "Failed to create child profile",
+      variant: "destructive",
+    });
+  },
+});
 
   const getTierBadgeColor = (tier: string) => {
     switch (tier) {
@@ -91,12 +98,15 @@ export default function ParentRegistry() {
     createParentMutation.mutate(parentData);
   };
 
+
+  
   const handleChildSubmit = (childData: any) => {
-    createChildMutation.mutate({
-      ...childData,
-      parentId: selectedParent.id,
-    });
-  };
+  createChildMutation.mutate({
+    ...childData,
+    dateOfBirth: new Date(childData.dateOfBirth).toISOString(), // Send as string
+    parentId: selectedParent.id,
+  });
+};
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-gray-900">
@@ -169,7 +179,7 @@ export default function ParentRegistry() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {parentsLoading ? (
+                  {isLoading ? (
                     <div className="space-y-4">
                       {[...Array(5)].map((_, i) => (
                         <div key={i} className="flex items-center justify-between p-4 border border-slate-200 dark:border-gray-700 rounded-lg animate-pulse">

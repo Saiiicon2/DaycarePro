@@ -241,11 +241,10 @@ async createUser(user: UpsertUser): Promise<User> {
     return child;
   }
 
-  async createChild(child: InsertChild): Promise<Child> {
-    const [newChild] = await db.insert(children).values(child).returning();
-    return newChild;
-  }
-
+ async createChild(child: InsertChild): Promise<Child> {
+  const [newChild] = await db.insert(children).values(child).returning();
+  return newChild;
+}
   async updateChild(id: number, child: Partial<InsertChild>): Promise<Child> {
     const [updatedChild] = await db
       .update(children)

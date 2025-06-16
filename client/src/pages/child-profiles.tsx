@@ -11,12 +11,13 @@ import { format } from "date-fns";
 export default function ChildProfiles() {
   const [searchQuery, setSearchQuery] = useState("");
 
+  const url = "http://localhost:5000/api/children";
   const { data: children, isLoading } = useQuery({
-    queryKey: ["/api/children"],
+    queryKey: [url],
   });
 
   const { data: parents } = useQuery({
-    queryKey: ["/api/parents"],
+    queryKey: ["http://localhost:5000/api/parents"],
   });
 
   const getParentName = (parentId: number) => {

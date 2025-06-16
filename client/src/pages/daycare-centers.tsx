@@ -16,8 +16,10 @@ export default function DaycareCenters() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  //use the full url instead
+  const url = "http://localhost:5000/api/daycares";
   const { data: daycares, isLoading } = useQuery({
-    queryKey: ["/api/daycares"],
+    queryKey: [url],
   });
 
   const createDaycareMutation = useMutation({

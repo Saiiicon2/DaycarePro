@@ -16,7 +16,10 @@ import { cn } from "@/lib/utils";
 const childFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  dateOfBirth: z.date().optional(),
+  dateOfBirth: z.date({
+  required_error: "Date of birth is required",
+  invalid_type_error: "Invalid date format",
+}),
   allergies: z.string().optional(),
   medicalNotes: z.string().optional(),
   emergencyContacts: z.string().optional(),

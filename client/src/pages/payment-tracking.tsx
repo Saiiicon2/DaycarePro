@@ -19,8 +19,10 @@ export default function PaymentTracking() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  //use full url instead
+  const url = "http://localhost:5000/api/payments";
   const { data: payments, isLoading } = useQuery({
-    queryKey: ["/api/payments"],
+    queryKey: [url],
   });
 
   const updatePaymentMutation = useMutation({
