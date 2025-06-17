@@ -15,19 +15,19 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: ["http://localhost:5000/api/dashboard/stats"],
   });
 
   const { data: alerts, isLoading: alertsLoading } = useQuery({
-    queryKey: ["/api/alerts?resolved=false"],
+    queryKey: ["http://localhost:5000/api/alerts?resolved=false"],
   });
 
   const { data: daycares, isLoading: daycaresLoading } = useQuery({
-    queryKey: ["/api/daycares"],
+    queryKey: ["http://localhost:5000/api/daycares"],
   });
 
   const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
-    queryKey: ["/api/payments"],
+    queryKey: ["http://localhost:5000/api/payments"],
   });
 
   const handleSearch = (e: React.FormEvent) => {

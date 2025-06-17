@@ -13,6 +13,7 @@ import { Plus, Search, Users, Baby } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PAYMENT_TIERS } from "@/lib/constants";
+import { date } from "drizzle-orm/mysql-core";
 
 export default function ParentRegistry() {
   const [, setLocation] = useLocation();
@@ -100,11 +101,13 @@ const { data: parents, isLoading } = useQuery({
 
 
   
-  const handleChildSubmit = (childData: any) => {
+const handleChildSubmit = (childData: any) => {
   createChildMutation.mutate({
     ...childData,
-    dateOfBirth: new Date(childData.dateOfBirth).toISOString(), // Send as string
+    dateOfBirth: new Date(childData.dateOfBirth).toISOString(),
     parentId: selectedParent.id,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 };
 

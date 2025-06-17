@@ -194,11 +194,9 @@ export const insertParentSchema = createInsertSchema(parents);
 export const insertChildSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  dateOfBirth: z
-    .string()
-    .refine((val) => !isNaN(Date.parse(val)), {
-      message: "Invalid date format",
-    }),
+  dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), {
+  message: "Invalid date format",
+}),
   parentId: z.number().int().positive(),
   createdAt: z.number().optional(),
   currentDaycareId: z.number().optional(),

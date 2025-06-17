@@ -196,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/children', isAuthenticated, async (req, res) => {
     try {
       const validatedData = insertChildSchema.parse(req.body);
-      console.log("✅ Validated child data:", validatedData);
+      console.log("Validated child data:", validatedData);
       const child = await storage.createChild(validatedData);
       res.status(201).json(child);
     } catch (error) {
