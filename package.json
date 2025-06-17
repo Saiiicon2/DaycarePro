@@ -7,7 +7,8 @@
     "backend": "cross-env NODE_ENV=development tsx server/index.ts",
     "frontend": "vite",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
+
     "start": "NODE_ENV=production node dist/index.js",
     
     "check": "tsc",
