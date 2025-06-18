@@ -42,7 +42,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <img src="../client/public/img/logoedu[trans].png" alt="Logo"></img>
+        <img src="/img/logoedu[trans].png" alt="Logo"></img>
         <br></br>
         <h2><em>Sign In</em></h2>
         {error && <p className="error">{error}</p>}

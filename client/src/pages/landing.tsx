@@ -17,7 +17,7 @@ export default function Landing() {
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white">EduConnect</h1>
               <p className="text-lg text-gray-600 dark:text-gray-300">Ecosystem Manager</p>
             </div> */}
-            <img src="../client/public/img/logoedu[trans].png"></img>
+            <img src="/img/logoedu[trans].png"></img>
           </div>
           
           <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
