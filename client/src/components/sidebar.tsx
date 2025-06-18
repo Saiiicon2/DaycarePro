@@ -105,7 +105,7 @@ export default function Sidebar() {
           </div>
           
         </div> */}
-        <img src="../src/img/logoedu[trans].png"></img>
+        <img src="../client/public/img/logoedu[trans].png"></img>
       </div>
 
       {/* User Profile */}

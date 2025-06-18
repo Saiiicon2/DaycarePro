@@ -18,7 +18,7 @@ export default function DaycareCenters() {
 
   //use the full url instead
   //const url = "http://localhost:5000/api/daycares";
-  const url = `${import.meta.env.VITE_API_URL}/api/cdaycares`;
+  const url = `${import.meta.env.VITE_API_URL}/api/daycares`;
   const { data: daycares, isLoading } = useQuery({
     queryKey: [url],
   });
