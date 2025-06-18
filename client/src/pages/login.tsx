@@ -11,30 +11,31 @@ export default function Login() {
   setError("");
 
   try {
-    const res = await fetch("http://localhost:5000/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      credentials: "include", // 🔐 Include cookies
-      body: JSON.stringify({
-        email,
-        password,
-        keepLoggedIn, // 🔁 Send this to the backend
-      }),
-    });
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // 🔐 Include cookies
+    body: JSON.stringify({
+      email,
+      password,
+      keepLoggedIn,
+    }),
+  });
 
-    if (res.ok) {
-      const user = await res.json();
-      console.log("✅ Logged in as:", user);
-      window.location.href = "/dashboard";
-    } else {
-      const err = await res.json();
-      setError(err.message || "Login failed");
-    }
-  } catch (err) {
-    setError("Error logging in");
+  if (res.ok) {
+    const user = await res.json();
+    console.log("Logged in as:", user);
+    window.location.href = "/dashboard";
+  } else {
+    const err = await res.json();
+    setError(err.message || "Login failed");
   }
+} catch (err) {
+  setError("Error logging in");
+}
+
 };
 
 

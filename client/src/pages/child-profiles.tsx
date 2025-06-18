@@ -11,14 +11,22 @@ import { format } from "date-fns";
 export default function ChildProfiles() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const url = "http://localhost:5000/api/children";
+  const url = `${import.meta.env.VITE_API_URL}/api/children`;
+
   const { data: children, isLoading } = useQuery({
     queryKey: [url],
   });
 
   const { data: parents } = useQuery({
-    queryKey: ["http://localhost:5000/api/parents"],
-  });
+  queryKey: ["parents"],
+  queryFn: async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/parents`, {
+      credentials: "include", // only if your API uses sessions/cookies
+    });
+    if (!res.ok) throw new Error("Failed to fetch parents");
+    return res.json();
+  },
+});
 
   const getParentName = (parentId: number) => {
     const parent = parents?.find((p: any) => p.id === parentId);

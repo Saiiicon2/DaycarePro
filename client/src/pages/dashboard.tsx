@@ -14,21 +14,66 @@ import { Link } from "wouter";
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
+  // const { data: stats, isLoading: statsLoading } = useQuery({
+  //   queryKey: ["http://localhost:5000/api/dashboard/stats"],
+  // });
+
+  // const { data: alerts, isLoading: alertsLoading } = useQuery({
+  //   queryKey: ["http://localhost:5000/api/alerts?resolved=false"],
+  // });
+
+  // const { data: daycares, isLoading: daycaresLoading } = useQuery({
+  //   queryKey: ["http://localhost:5000/api/daycares"],
+  // });
+
+  // const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
+  //   queryKey: ["http://localhost:5000/api/payments"],
+  // });
+
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["http://localhost:5000/api/dashboard/stats"],
-  });
+  queryKey: ["dashboard-stats"],
+  queryFn: async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/stats`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch stats");
+    return res.json();
+  },
+});
 
-  const { data: alerts, isLoading: alertsLoading } = useQuery({
-    queryKey: ["http://localhost:5000/api/alerts?resolved=false"],
-  });
+const { data: alerts, isLoading: alertsLoading } = useQuery({
+  queryKey: ["alerts"],
+  queryFn: async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?resolved=false`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch alerts");
+    return res.json();
+  },
+});
 
-  const { data: daycares, isLoading: daycaresLoading } = useQuery({
-    queryKey: ["http://localhost:5000/api/daycares"],
-  });
+const { data: daycares, isLoading: daycaresLoading } = useQuery({
+  queryKey: ["daycares"],
+  queryFn: async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/daycares`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch daycares");
+    return res.json();
+  },
+});
 
-  const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
-    queryKey: ["http://localhost:5000/api/payments"],
-  });
+const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
+  queryKey: ["recentPayments"],
+  queryFn: async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payments`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch payments");
+    return res.json();
+  },
+});
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -17,7 +17,8 @@ export default function DaycareCenters() {
   const { toast } = useToast();
 
   //use the full url instead
-  const url = "http://localhost:5000/api/daycares";
+  //const url = "http://localhost:5000/api/daycares";
+  const url = `${import.meta.env.VITE_API_URL}/api/cdaycares`;
   const { data: daycares, isLoading } = useQuery({
     queryKey: [url],
   });

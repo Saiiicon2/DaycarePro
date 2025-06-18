@@ -24,9 +24,15 @@ export default function ParentRegistry() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const url = searchQuery
-  ? `http://localhost:5000/api/parents?search=${encodeURIComponent(searchQuery)}`
-  : `http://localhost:5000/api/parents`;
+  // const url = searchQuery
+  // ? `http://localhost:5000/api/parents?search=${encodeURIComponent(searchQuery)}`
+  // : `http://localhost:5000/api/parents`;
+
+  const baseUrl = import.meta.env.VITE_API_URL;
+
+const url = searchQuery
+  ? `${baseUrl}/api/parents?search=${encodeURIComponent(searchQuery)}`
+  : `${baseUrl}/api/parents`;
 
 const { data: parents, isLoading } = useQuery({
   queryKey: [url],

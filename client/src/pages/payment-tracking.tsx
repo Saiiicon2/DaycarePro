@@ -20,7 +20,8 @@ export default function PaymentTracking() {
   const { toast } = useToast();
 
   //use full url instead
-  const url = "http://localhost:5000/api/payments";
+  // const url = "http://localhost:5000/api/payments";
+  const url = `${import.meta.env.VITE_API_URL}/api/payments`;
   const { data: payments, isLoading } = useQuery({
     queryKey: [url],
   });
