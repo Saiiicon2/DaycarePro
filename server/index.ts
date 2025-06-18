@@ -2,6 +2,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import cors from "cors";
+import "dotenv/config";
+
 
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -10,10 +12,16 @@ import { type User } from "@shared/schema-sqlite";
 const app = express();
 
 // ✅ Set up CORS
+// app.use(cors({
+//    origin: ["http://localhost:5173", "http://localhost:5174"], // ✅ Allow both
+//   credentials: true
+// }));
+
 app.use(cors({
-   origin: ["http://localhost:5173", "http://localhost:5174"], // ✅ Allow both
+  origin: ["http://localhost:5173", "https://educonnect-8y46.onrender.com"],
   credentials: true
 }));
+
 
 // ✅ Middleware
 app.use(express.json());
