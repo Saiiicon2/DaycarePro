@@ -84,7 +84,11 @@ app.use((req, res, next) => {
 
   //  Start the server on localhost
   const port = 5000;
-  server.listen(port, "127.0.0.1", () => {
-    console.log(` Server listening on http://127.0.0.1:${port}`);
-  });
+  // server.listen(port, "127.0.0.1", () => {
+  //   console.log(` Server listening on http://127.0.0.1:${port}`);
+  // });
+  server.listen(process.env.PORT || 5000, "0.0.0.0", () => {
+  console.log(` Server listening on http://0.0.0.0:${process.env.PORT || 5000}`);
+});
+
 })();
