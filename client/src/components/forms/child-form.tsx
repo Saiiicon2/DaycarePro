@@ -17,15 +17,23 @@ const childFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   dateOfBirth: z.date({
-  required_error: "Date of birth is required",
-  invalid_type_error: "Invalid date format",
-}),
+    required_error: "Date of birth is required",
+    invalid_type_error: "Invalid date format",
+  }),
   allergies: z.string().optional(),
   medicalNotes: z.string().optional(),
   emergencyContacts: z.string().optional(),
+
+  createdAt: z.number().optional(),   
+  updatedAt: z.number().optional(),   
 });
 
-type ChildFormData = z.infer<typeof childFormSchema>;
+type ChildFormData = z.infer<typeof childFormSchema> & {
+  parentId: number;
+  createdAt: number;
+  updatedAt: number;
+  dateOfBirth: string; // overriding z.date() with ISO string (match backend)
+};
 
 interface ChildFormProps {
   parent: any;
@@ -49,9 +57,20 @@ export default function ChildForm({ parent, onSubmit, onCancel, isLoading }: Chi
     },
   });
 
-  const handleSubmit = (data: ChildFormData) => {
-    onSubmit(data);
-  };
+const handleSubmit = (data: ChildFormData) => {
+  const now = Date.now();
+
+  const childPayload = {
+  ...data,
+  parentId: Number(parent.id),
+  createdAt: new Date(), // ✅ send as Date
+  updatedAt: new Date(),
+  dateOfBirth: data.dateOfBirth.toISOString(), // ✅ string
+};
+
+  console.log(" Final Payload:", childPayload);
+  onSubmit(childPayload);
+};
 
   return (
     <Dialog open={true} onOpenChange={() => onCancel()}>

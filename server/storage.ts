@@ -242,7 +242,18 @@ async createUser(user: UpsertUser): Promise<User> {
   }
 
  async createChild(child: InsertChild): Promise<Child> {
-  const [newChild] = await db.insert(children).values(child).returning();
+  console.log(" Incoming child data:", child);
+
+  const parsedChild = {
+    ...child,
+    createdAt: new Date(Number(child.createdAt)),
+    updatedAt: new Date(Number(child.updatedAt)),
+    dateOfBirth: new Date(child.dateOfBirth), //  convert ISO string to Date
+  };
+
+  console.log("✅ Parsed child data before insert:", parsedChild);
+
+  const [newChild] = await db.insert(children).values(parsedChild).returning();
   return newChild;
 }
   async updateChild(id: number, child: Partial<InsertChild>): Promise<Child> {

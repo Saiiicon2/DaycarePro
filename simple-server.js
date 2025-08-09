@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 
+
+
 const app = express();
 const PORT = 5000;
 
@@ -19,6 +21,10 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
 }));
+const plain = 'pass123';
+const hash = '$2b$10$grq6CEU42VmGcD8L5t4s6ebHCD7eTx4kdaOFPn9EFhJxfEGOYq9LS'; // from DB
+
+console.log(bcrypt.compareSync(plain, hash)); // Should print true
 
 // Create tables
 db.serialize(() => {
@@ -54,9 +60,13 @@ db.serialize(() => {
 
   // Create default admin user
   const hashedPassword = bcrypt.hashSync('admin123', 10);
+  const hashedDaycarePassword = bcrypt.hashSync('daycare123', 10);
   db.run(`INSERT OR IGNORE INTO users (email, password, first_name, last_name) 
           VALUES (?, ?, ?, ?)`, 
           ['admin@daycare.com', hashedPassword, 'Admin', 'User']);
+
+         
+
 });
 
 // Auth middleware

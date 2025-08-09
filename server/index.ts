@@ -4,41 +4,43 @@ import session from "express-session";
 import cors from "cors";
 import "dotenv/config";
 
-
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupLocalAuth } from "./localAuth";
 import { type User } from "@shared/schema-sqlite";
+
 const app = express();
 
+// ✅ Detect environment
+const isProduction = process.env.NODE_ENV === "production";
+const frontendOrigins = isProduction
+  ? ["https://educonnect-8y46.onrender.com"]
+  : ["http://localhost:5173", "http://localhost:5174"];
+
 // ✅ Set up CORS
-// app.use(cors({
-//    origin: ["http://localhost:5173", "http://localhost:5174"], // ✅ Allow both
-//   credentials: true
-// }));
-
 app.use(cors({
-  origin: ["http://localhost:5173", "https://educonnect-8y46.onrender.com"],
-  credentials: true
+  origin: frontendOrigins,
+  credentials: true,
 }));
-
 
 // ✅ Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
 // ✅ Set up sessions
 app.use(session({
-  secret: 'daycare-secret-key',
+  secret: process.env.SESSION_SECRET || 'daycare-secret-key',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  cookie: {
+    secure: isProduction, // Secure in prod
+    sameSite: isProduction ? "none" : "lax", // Required for cookies to work across origins
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
 }));
+
+// ✅ Setup Auth
 setupLocalAuth(app);
-
-
-
-
-app.use(express.urlencoded({ extended: false }));
 
 // ✅ Logger Middleware for API requests
 app.use((req, res, next) => {
@@ -78,25 +80,20 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
     throw err;
   });
 
-  // ✅ Vite setup (only in dev)
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  // ✅ Serve frontend
+  if (!isProduction) {
+    await setupVite(app, server); // Dev mode
   } else {
-    serveStatic(app);
+    serveStatic(app); // Prod mode
   }
 
-  //  Start the server on localhost
-  const port = 5000;
-  // server.listen(port, "127.0.0.1", () => {
-  //   console.log(` Server listening on http://127.0.0.1:${port}`);
-  // });
-  server.listen(process.env.PORT || 5000, "0.0.0.0", () => {
-  console.log(` Server listening on http://0.0.0.0:${process.env.PORT || 5000}`);
-});
-
+  // ✅ Listen on port
+  const port = process.env.PORT || 5000;
+  server.listen(port, "0.0.0.0", () => {
+    console.log(` Server listening on http://0.0.0.0:${port}`);
+  });
 })();

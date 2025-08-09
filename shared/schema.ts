@@ -198,13 +198,13 @@ export const insertChildSchema = z.object({
   message: "Invalid date format",
 }),
   parentId: z.number().int().positive(),
-  createdAt: z.number().optional(),
+  createdAt: z.number(),
   currentDaycareId: z.number().optional(),
   allergies: z.string().optional(),
   medicalNotes: z.string().optional(),
   emergencyContacts: z.string().optional(),
   isActive: z.boolean().optional(),
-  updatedAt: z.number().optional(),
+  updatedAt: z.number(),
 });
 
 export const insertEnrollmentSchema = createInsertSchema(enrollments);

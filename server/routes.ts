@@ -201,8 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(child);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid child data", errors: error.errors });
-      }
+  console.error("❌ Zod validation error:", error.flatten());
+  return res.status(400).json({ message: "Invalid child data", errors: error.errors });
+}
       console.error("Error creating child:", error);
       res.status(500).json({ message: "Failed to create child profile" });
     }

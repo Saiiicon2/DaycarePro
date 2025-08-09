@@ -108,13 +108,13 @@ const { data: parents, isLoading } = useQuery({
 
   
 const handleChildSubmit = (childData: any) => {
-  createChildMutation.mutate({
-    ...childData,
-    dateOfBirth: new Date(childData.dateOfBirth).toISOString(),
-    parentId: selectedParent.id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+ createChildMutation.mutate({
+  ...childData,
+  dateOfBirth: new Date(childData.dateOfBirth).toISOString(),
+  parentId: selectedParent.id,
+  createdAt: Date.now(),    
+  updatedAt: Date.now(),
+});
 };
 
   return (
