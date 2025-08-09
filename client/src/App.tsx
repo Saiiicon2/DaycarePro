@@ -1,9 +1,11 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import ParentLookup from "@/pages/parent-lookup";
@@ -14,36 +16,51 @@ import PaymentTracking from "@/pages/payment-tracking";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 
-function Router() {
+/** tiny redirect helper for wouter */
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => setLocation(to), [to, setLocation]);
+  return null;
+}
+
+/** protect routes: show component if authed, else go to /login */
+function ProtectedRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect to="/login" />;
+  return <Component />;
+}
 
-  if (isLoading) return null; // ⏳ Don't render until auth is ready
+/** prevent logged-in users from seeing /login */
+function PublicOnlyRoute({ component: Component }: { component: React.ComponentType<any> }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (isAuthenticated) return <Redirect to="/dashboard" />;
+  return <Component />;
+}
 
+function Router() {
   return (
     <Switch>
-      <Route path="/login" component={Login} /> {/* ✅ Always available */}
+      {/* Public */}
+      <Route path="/" component={Landing} />
+      <Route path="/login" component={PublicOnlyRoute.bind(null, { component: Login } as any)} />
 
-      {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} /> {/* Optional fallback */}
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/parent-lookup" component={ParentLookup} />
-          <Route path="/parent-registry" component={ParentRegistry} />
-          <Route path="/child-profiles" component={ChildProfiles} />
-          <Route path="/daycare-centers" component={DaycareCenters} />
-          <Route path="/payment-tracking" component={PaymentTracking} />
-        </>
-      )}
+      {/* Protected */}
+      <Route path="/dashboard" component={ProtectedRoute.bind(null, { component: Dashboard } as any)} />
+      <Route path="/parent-lookup" component={ProtectedRoute.bind(null, { component: ParentLookup } as any)} />
+      <Route path="/parent-registry" component={ProtectedRoute.bind(null, { component: ParentRegistry } as any)} />
+      <Route path="/child-profiles" component={ProtectedRoute.bind(null, { component: ChildProfiles } as any)} />
+      <Route path="/daycare-centers" component={ProtectedRoute.bind(null, { component: DaycareCenters } as any)} />
+      <Route path="/payment-tracking" component={ProtectedRoute.bind(null, { component: PaymentTracking } as any)} />
 
+      {/* Catch-all */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -53,5 +70,3 @@ function App() {
     </QueryClientProvider>
   );
 }
-
-export default App;
