@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/formatCurrency";
 import Sidebar from "@/components/sidebar";
 import KPICards from "@/components/dashboard/kpi-cards";
 import RecentAlerts from "@/components/dashboard/recent-alerts";
@@ -30,49 +32,25 @@ export default function Dashboard() {
   //   queryKey: ["http://localhost:5000/api/payments"],
   // });
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-  queryKey: ["dashboard-stats"],
-  queryFn: async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/stats`, {
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error("Failed to fetch stats");
-    return res.json();
-  },
-});
+  const { data: stats, isLoading: statsLoading } = useQuery<{ totalParents: number; goodPayers: number; midPayers: number; nonPayers: number } | undefined>({
+    queryKey: ["/api/dashboard/stats"],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
 
-const { data: alerts, isLoading: alertsLoading } = useQuery({
-  queryKey: ["alerts"],
-  queryFn: async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/alerts?resolved=false`, {
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error("Failed to fetch alerts");
-    return res.json();
-  },
-});
+  const { data: alerts, isLoading: alertsLoading } = useQuery<any[] | undefined>({
+    queryKey: ["/api/alerts?resolved=false"],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
 
-const { data: daycares, isLoading: daycaresLoading } = useQuery({
-  queryKey: ["daycares"],
-  queryFn: async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/daycares`, {
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error("Failed to fetch daycares");
-    return res.json();
-  },
-});
+  const { data: daycares, isLoading: daycaresLoading } = useQuery<any[] | undefined>({
+    queryKey: ["/api/daycares"],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
 
-const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
-  queryKey: ["recentPayments"],
-  queryFn: async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/payments`, {
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error("Failed to fetch payments");
-    return res.json();
-  },
-});
+  const { data: recentPayments, isLoading: paymentsLoading } = useQuery<any[] | undefined>({
+    queryKey: ["/api/payments"],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
 
 
   const handleSearch = (e: React.FormEvent) => {
@@ -183,7 +161,7 @@ const { data: recentPayments, isLoading: paymentsLoading } = useQuery({
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-slate-900 dark:text-white">${payment.amount}</p>
+                        <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(payment.amount)}</p>
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           payment.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                           payment.status === 'overdue' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :

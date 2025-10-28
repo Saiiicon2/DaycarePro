@@ -1,45 +1,75 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const BASE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+
+/** If url is a path, prefix BASE_URL; if it’s already absolute, leave it. */
+function toAbsoluteUrl(url: string) {
+  if (!url) return url;
+  return /^https?:\/\//i.test(url) ? url : `${BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // try to parse JSON { message } for friendlier errors, fall back to raw text
+    try {
+      const text = await res.text();
+      try {
+        const json = text ? JSON.parse(text) : null;
+        const message = json?.message ?? (typeof json === 'string' ? json : undefined);
+        throw new Error(`${res.status}: ${message ?? text ?? res.statusText}`);
+      } catch (e) {
+        // text was not JSON
+        throw new Error(`${res.status}: ${text || res.statusText}`);
+      }
+    } catch (e) {
+      throw new Error(`${res.status}: ${res.statusText}`);
+    }
   }
 }
-//const BASE_URL = "http://localhost:5000";
-const baseUrl = import.meta.env.VITE_API_URL;
+
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<Response> {
-  const res = await fetch(`${baseUrl}${url}`, {
+  const res = await fetch(toAbsoluteUrl(url), {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...(extraHeaders ?? {}),
+    },
     credentials: "include",
+    body: data ? JSON.stringify(data) : undefined,
   });
-
   await throwIfResNotOk(res);
   return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+/** Default fetcher for useQuery: works with full URLs or paths. */
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+  ({ on401 }) =>
+  async ({ queryKey, signal }) => {
+    const raw = String(queryKey[0] ?? "");
+    const url = toAbsoluteUrl(raw);
+
+    const res = await fetch(url, {
       credentials: "include",
+      signal,
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (on401 === "returnNull" && res.status === 401) {
+      return null as any;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    // Some endpoints might 204; guard just in case
+    const text = await res.text();
+    return (text ? JSON.parse(text) : null) as any;
   };
 
 export const queryClient = new QueryClient({

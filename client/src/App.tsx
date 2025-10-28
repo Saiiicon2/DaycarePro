@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import RegisterInstitution from "@/pages/RegisterInstitution";
 //commit test
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -12,7 +13,10 @@ import ParentLookup from "@/pages/parent-lookup";
 import ParentRegistry from "@/pages/parent-registry";
 import ChildProfiles from "@/pages/child-profiles";
 import DaycareCenters from "@/pages/daycare-centers";
+import Users from "@/pages/users";
 import PaymentTracking from "@/pages/payment-tracking";
+import Alerts from "@/pages/alerts";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 
@@ -52,8 +56,11 @@ function Router() {
       <Route path="/parent-registry" component={ProtectedRoute.bind(null, { component: ParentRegistry } as any)} />
       <Route path="/child-profiles" component={ProtectedRoute.bind(null, { component: ChildProfiles } as any)} />
       <Route path="/daycare-centers" component={ProtectedRoute.bind(null, { component: DaycareCenters } as any)} />
+  <Route path="/users" component={ProtectedRoute.bind(null, { component: Users } as any)} />
       <Route path="/payment-tracking" component={ProtectedRoute.bind(null, { component: PaymentTracking } as any)} />
-
+  <Route path="/alerts" component={ProtectedRoute.bind(null, { component: Alerts } as any)} />
+    <Route path="/settings" component={ProtectedRoute.bind(null, { component: Settings } as any)} />
+      <Route path="/register-institution" component={RegisterInstitution} />
       {/* Catch-all */}
       <Route component={NotFound} />
     </Switch>

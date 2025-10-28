@@ -1,5 +1,6 @@
 import { useState } from "react";
 import './Login.css';
+import { apiRequest } from "@/lib/queryClient";
 export default function Login() {
   const [email, setEmail] = useState("admin@daycare.com");
   const [password, setPassword] = useState("admin123");
@@ -11,30 +12,13 @@ export default function Login() {
   setError("");
 
   try {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include", // 🔐 Include cookies
-    body: JSON.stringify({
-      email,
-      password,
-      keepLoggedIn,
-    }),
-  });
-
-  if (res.ok) {
+    const res = await apiRequest('POST', '/api/auth/login', { email, password, keepLoggedIn });
     const user = await res.json();
     console.log("Logged in as:", user);
     window.location.href = "/dashboard";
-  } else {
-    const err = await res.json();
-    setError(err.message || "Login failed");
+  } catch (err: any) {
+    setError(err?.message ?? "Login failed");
   }
-} catch (err) {
-  setError("Error logging in");
-}
 
 };
 

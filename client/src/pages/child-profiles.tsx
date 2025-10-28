@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
 import Sidebar from "@/components/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,25 +9,19 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Baby, Calendar, MapPin, Plus } from "lucide-react";
 import { format } from "date-fns";
 
+
 export default function ChildProfiles() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const url = `${import.meta.env.VITE_API_URL}/api/children`;
-
-  const { data: children, isLoading } = useQuery({
-    queryKey: [url],
+  const { data: children, isLoading } = useQuery<any[] | undefined>({
+    queryKey: ["/api/children"],
+    queryFn: getQueryFn({ on401: 'throw' }),
   });
 
-  const { data: parents } = useQuery({
-  queryKey: ["parents"],
-  queryFn: async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/parents`, {
-      credentials: "include", // only if your API uses sessions/cookies
-    });
-    if (!res.ok) throw new Error("Failed to fetch parents");
-    return res.json();
-  },
-});
+  const { data: parents } = useQuery<any[] | undefined>({
+    queryKey: ["/api/parents"],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
 
   const getParentName = (parentId: number) => {
     const parent = parents?.find((p: any) => p.id === parentId);
@@ -46,7 +41,7 @@ export default function ChildProfiles() {
     return age;
   };
 
-  const filteredChildren = children?.filter((child: any) => {
+  const filteredChildren = (children || []).filter((child: any) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (

@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle
+} from "@/components/ui/dialog";
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -12,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Loader2, Baby, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import DaycareSelect from "@/components/DaycareSelect";
 
 const childFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -23,54 +29,85 @@ const childFormSchema = z.object({
   allergies: z.string().optional(),
   medicalNotes: z.string().optional(),
   emergencyContacts: z.string().optional(),
-
-  createdAt: z.number().optional(),   
-  updatedAt: z.number().optional(),   
+  // Admin-only select (validated in submit)
+  currentDaycareId: z.coerce.number().int().positive().optional(),
 });
 
-type ChildFormData = z.infer<typeof childFormSchema> & {
-  parentId: number;
-  createdAt: number;
-  updatedAt: number;
-  dateOfBirth: string; // overriding z.date() with ISO string (match backend)
+type FormValues = z.infer<typeof childFormSchema>& {
+  currentDaycareId?: number;
 };
 
+
+type Daycare = { id: number; name: string };
+
 interface ChildFormProps {
-  parent: any;
-  onSubmit: (data: ChildFormData) => void;
+  parent: any; // should have { id, firstName, lastName, daycareId? }
+  onSubmit: (data: any) => void; // will receive API payload (with parentId, timestamps, etc.)
   onCancel: () => void;
   isLoading: boolean;
 }
 
 export default function ChildForm({ parent, onSubmit, onCancel, isLoading }: ChildFormProps) {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [daycares, setDaycares] = useState<Daycare[]>([]);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const form = useForm<ChildFormData>({
+  useEffect(() => {
+    (async () => {
+      try {
+        const uRes = await apiRequest("GET", "/api/auth/user");
+        const u = await uRes.json();
+        const admin = u?.role === "admin" || u?.role === "system_admin";
+        setIsAdmin(admin);
+        if (admin) {
+          const dRes = await apiRequest("GET", "/api/daycares");
+          const d = await dRes.json();
+          setDaycares(d || []);
+        }
+      } catch {
+        // ignore auth failures here; form will show limited UI for non-admins
+      }
+    })();
+  }, []);
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(childFormSchema),
     defaultValues: {
       firstName: "",
-      lastName: parent.lastName, // Pre-fill with parent's last name
+      lastName: parent?.lastName ?? "",
       dateOfBirth: undefined,
       allergies: "",
       medicalNotes: "",
       emergencyContacts: "",
+      currentDaycareId: parent?.daycareId ?? undefined, // default to parent's daycare if known
     },
   });
 
-const handleSubmit = (data: ChildFormData) => {
-  const now = Date.now();
+  const handleSubmit = (values: FormValues) => {
+    // Admin must choose a daycare explicitly
+    if (isAdmin && !values.currentDaycareId) {
+      form.setError("currentDaycareId", { type: "manual", message: "Please select a daycare" });
+      return;
+    }
 
-  const childPayload = {
-  ...data,
-  parentId: Number(parent.id),
-  createdAt: new Date(), // ✅ send as Date
-  updatedAt: new Date(),
-  dateOfBirth: data.dateOfBirth.toISOString(), // ✅ string
-};
+    const payload = {
+      // core fields
+      firstName: values.firstName,
+      lastName: values.lastName,
+      dateOfBirth: values.dateOfBirth.toISOString(), // API expects string
+      allergies: values.allergies ?? "",
+      medicalNotes: values.medicalNotes ?? "",
+      emergencyContacts: values.emergencyContacts ?? "",
+      // relations & timestamps
+      parentId: Number(parent.id),
+      createdAt: Date.now(), // number (ms) → matches server Number(createdAt)
+      updatedAt: Date.now(),
+      // tenancy (only include when admin picked one; tenants are pinned server-side)
+      ...(isAdmin ? { currentDaycareId: values.currentDaycareId } : {}),
+    };
 
-  console.log(" Final Payload:", childPayload);
-  onSubmit(childPayload);
-};
+    onSubmit(payload);
+  };
 
   return (
     <Dialog open={true} onOpenChange={() => onCancel()}>
@@ -87,6 +124,37 @@ const handleSubmit = (data: ChildFormData) => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+
+            {/* Admin-only daycare select */}
+            {isAdmin ? (
+              <FormField
+                control={form.control}
+                name="currentDaycareId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Daycare *</FormLabel>
+                    <FormControl>
+                      <select
+                        className="mt-1 block w-full border rounded p-2"
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      >
+                        <option value="" disabled>Select a daycare…</option>
+                        {daycares.map(dc => (
+                          <option key={dc.id} value={dc.id}>{dc.name}</option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="text-sm text-gray-600">
+                This child will be created under your active daycare.
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -122,22 +190,15 @@ const handleSubmit = (data: ChildFormData) => {
               name="dateOfBirth"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Date of Birth</FormLabel>
+                  <FormLabel>Date of Birth *</FormLabel>
                   <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
+                          className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                         >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
@@ -150,9 +211,7 @@ const handleSubmit = (data: ChildFormData) => {
                           field.onChange(date);
                           setIsCalendarOpen(false);
                         }}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
-                        }
+                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                         initialFocus
                       />
                     </PopoverContent>
@@ -169,11 +228,11 @@ const handleSubmit = (data: ChildFormData) => {
                 <FormItem>
                   <FormLabel>Allergies</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="List any known allergies (food, environmental, etc.)"
                       className="resize-none"
                       rows={2}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -188,11 +247,11 @@ const handleSubmit = (data: ChildFormData) => {
                 <FormItem>
                   <FormLabel>Medical Notes</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Any medical conditions, medications, or special care instructions"
                       className="resize-none"
                       rows={3}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -207,11 +266,11 @@ const handleSubmit = (data: ChildFormData) => {
                 <FormItem>
                   <FormLabel>Emergency Contacts</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Additional emergency contacts besides the parent"
                       className="resize-none"
                       rows={2}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />

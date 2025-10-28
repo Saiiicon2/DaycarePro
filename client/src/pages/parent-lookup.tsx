@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Search, Shield, CheckCircle, AlertTriangle, XCircle, Calendar, DollarSign } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/formatCurrency";
 import { PAYMENT_TIERS } from "@/lib/constants";
 import { format } from "date-fns";
 
@@ -244,7 +245,7 @@ export default function ParentLookup() {
                               </div>
                               
                               <div className="text-right">
-                                <p className="font-bold text-slate-900 dark:text-white">${payment.amount}</p>
+                                <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(payment.amount)}</p>
                                 <Badge className={
                                   payment.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                                   payment.status === 'overdue' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :

@@ -141,7 +141,7 @@ export default function Landing() {
             size="lg" 
             variant="outline"
             className="text-lg px-8 py-4 mr-4"
-            onClick={() => window.location.href = '/login'}
+            onClick={() => window.location.href = '/register-institution'}
           >
             Get Started
           </Button>

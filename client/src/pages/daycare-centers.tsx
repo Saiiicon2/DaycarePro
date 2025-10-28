@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Building2, Plus, MapPin, Phone, Mail, Users } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function DaycareCenters() {
@@ -16,11 +16,9 @@ export default function DaycareCenters() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  //use the full url instead
-  //const url = "http://localhost:5000/api/daycares";
-  const url = `${import.meta.env.VITE_API_URL}/api/daycares`;
-  const { data: daycares, isLoading } = useQuery({
-    queryKey: [url],
+  const { data: daycares, isLoading } = useQuery<any[] | undefined>({
+    queryKey: ["/api/daycares"],
+    queryFn: getQueryFn({ on401: 'throw' }),
   });
 
   const createDaycareMutation = useMutation({
@@ -45,7 +43,7 @@ export default function DaycareCenters() {
     },
   });
 
-  const filteredDaycares = daycares?.filter((daycare: any) => {
+  const filteredDaycares = (daycares || []).filter((daycare: any) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
