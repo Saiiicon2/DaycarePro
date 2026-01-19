@@ -2,18 +2,18 @@
 A multi-tenant daycare management application built with React + TypeScript, Express, and SQLite, designed to help daycare centers manage children, parents, payments, and risk profiles — while allowing a central admin to oversee the entire ecosystem.
 This project demonstrates real-world SaaS architecture, role-based access control, and data integrity across tenants.
 ________________________________________
-🚀 Key Features
-🔐 Authentication & Roles
+ Key Features
+ Authentication & Roles
 •	Secure login system (local authentication)
 •	Role-based access control:
 o	Admin: Full access across all daycares
 o	Daycare User: Restricted to their own daycare’s data
-🏫 Multi-Tenant Architecture
+ Multi-Tenant Architecture
 •	Multiple daycares operate under one system
 •	Each daycare can:
 o	View and manage only their own children, parents, and payments
 o	Search parents globally without accessing private data (risk/payment status only)
-👶 Child & Parent Management
+ Child & Parent Management
 •	Register parents and children
 •	Link children to parents and specific daycares
 •	Prevent non-paying or flagged parents from re-registering at new daycares
@@ -21,12 +21,12 @@ o	Search parents globally without accessing private data (risk/payment status on
 •	Record and track payments per child
 •	Flag delinquent or high-risk parents
 •	Enable daycares to assess payment risk before enrollment
-📊 Admin Oversight
+ Admin Oversight
 •	Admin dashboard with system-wide visibility
 •	Add and manage daycare centers
 •	View data across all tenants while preserving isolation
 ________________________________________
-🧱 Tech Stack
+Tech Stack
 Frontend
 •	React 18 with TypeScript
 •	Tailwind CSS for modern UI
@@ -42,16 +42,16 @@ Architecture Highlights
 •	Clear separation of concerns (routes, storage, validation)
 •	Storage abstraction layer for future database scalability
 ________________________________________
-🗂 Project Structure
+ Project Structure
 client/      # React + TypeScript frontend
 server/      # Express backend
 shared/      # Shared Zod schemas & types
 ________________________________________
-🎯 Why This Project Matters
+ Why This Project Matters
 This application was built to solve real operational problems faced by daycare centers: - Preventing repeat non-paying enrollments - Enforcing strict data isolation between tenants - Giving admins oversight without compromising privacy
 It reflects production-level concerns such as: - Multi-tenant data access - Role-based permissions - Validation consistency - Scalable backend design
 ________________________________________
-🛠 Getting Started
+ Getting Started
 # Install dependencies
 npm install
 
