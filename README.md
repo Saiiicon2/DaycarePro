@@ -1,4 +1,4 @@
-🧸 Daycare Management System
+ Daycare Management System
 A multi-tenant daycare management application built with React + TypeScript, Express, and SQLite, designed to help daycare centers manage children, parents, payments, and risk profiles — while allowing a central admin to oversee the entire ecosystem.
 This project demonstrates real-world SaaS architecture, role-based access control, and data integrity across tenants.
 ________________________________________
@@ -17,7 +17,7 @@ o	Search parents globally without accessing private data (risk/payment status on
 •	Register parents and children
 •	Link children to parents and specific daycares
 •	Prevent non-paying or flagged parents from re-registering at new daycares
-💳 Payments & Risk Tracking
+ Payments & Risk Tracking
 •	Record and track payments per child
 •	Flag delinquent or high-risk parents
 •	Enable daycares to assess payment risk before enrollment
