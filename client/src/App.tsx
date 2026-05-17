@@ -17,6 +17,7 @@ import Users from "@/pages/users";
 import PaymentTracking from "@/pages/payment-tracking";
 import Alerts from "@/pages/alerts";
 import Settings from "@/pages/settings";
+import EcosystemManagement from "@/pages/ecosystem-management";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 
@@ -59,7 +60,8 @@ function Router() {
   <Route path="/users" component={ProtectedRoute.bind(null, { component: Users } as any)} />
       <Route path="/payment-tracking" component={ProtectedRoute.bind(null, { component: PaymentTracking } as any)} />
   <Route path="/alerts" component={ProtectedRoute.bind(null, { component: Alerts } as any)} />
-    <Route path="/settings" component={ProtectedRoute.bind(null, { component: Settings } as any)} />
+      <Route path="/ecosystem-management" component={ProtectedRoute.bind(null, { component: EcosystemManagement } as any)} />
+      <Route path="/settings" component={ProtectedRoute.bind(null, { component: Settings } as any)} />
       <Route path="/register-institution" component={RegisterInstitution} />
       {/* Catch-all */}
       <Route component={NotFound} />
