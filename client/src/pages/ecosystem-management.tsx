@@ -122,10 +122,13 @@ export default function EcosystemManagementPage() {
     <div className="flex h-screen bg-slate-50 dark:bg-gray-900">
       <Sidebar />
       <main className="flex-1 ml-64 overflow-auto p-6">
-        {/* TEST MODE BANNER */}
-        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded-lg">
-          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-            ✓ TEST MODE ACTIVE - Render deployment confirmed working (Last updated: {new Date().toLocaleTimeString()})
+        {/* DEPLOYMENT CONFIRMED BANNER */}
+        <div className="mb-6 p-4 bg-green-100 dark:bg-green-900 border-2 border-green-400 dark:border-green-700 rounded-lg shadow-md">
+          <p className="text-base font-bold text-green-800 dark:text-green-200">
+            ✓ RENDER DEPLOYMENT CONFIRMED - Code published successfully ({new Date().toLocaleString()})
+          </p>
+          <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+            If this banner appears, Render is successfully deploying your GitHub changes.
           </p>
         </div>
 
@@ -141,20 +144,26 @@ export default function EcosystemManagementPage() {
                 Cross-daycare fraud detection and family payment pattern analysis
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant={showSettings ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setShowSettings(!showSettings)}
-              >
-                ⚙️ Settings
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setRefreshCount(c => c + 1)}>
-                Refresh
-              </Button>
-            </div>
           </div>
-          </div>
+
+          {/* Maintenance Notice */}
+          <Card className="bg-amber-50 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-700">
+            <CardHeader>
+              <CardTitle className="text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" />
+                Temporarily Under Maintenance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-amber-900 dark:text-amber-100">
+              <p>
+                We're debugging the backend API for ecosystem alerts and suspicious activity detection. The green banner at the top confirms that your Render deployment is working correctly.
+              </p>
+              <div className="bg-white dark:bg-slate-800 p-3 rounded text-sm space-y-1">
+                <p><strong>✓ Status:</strong> Frontend deployed to Render</p>
+                <p><strong>⏳ In Progress:</strong> Fixing backend API endpoints</p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Settings Panel */}
           {showSettings && selectedEcosystem && (
