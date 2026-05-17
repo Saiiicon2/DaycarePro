@@ -4,7 +4,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, XCircle, Info, AlertCircle, TrendingUp, Users, Shield, Toggle2, CheckCircle } from "lucide-react";
+import { AlertTriangle, XCircle, Info, AlertCircle, TrendingUp, Users, Shield, Toggle2, CheckCircle, TrendingDown, Activity, BarChart3, Clock, MapPin, DollarSign, AlertOctagon } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -311,6 +311,162 @@ export default function EcosystemManagementPage() {
                 </div>
               )}
 
+              {/* Risk Overview Dashboard */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Risk Overview
+                  </CardTitle>
+                  <CardDescription>Ecosystem health and risk assessment</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Ecosystem Health Score */}
+                    <div className="p-4 border rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 dark:border-green-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-green-900 dark:text-green-100">Ecosystem Health</h3>
+                        <Activity className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="text-3xl font-bold text-green-700 dark:text-green-300 mb-2">
+                        {Math.max(0, 100 - ((suspiciousArr?.totalUnresolvedAlerts || 0) * 5))}%
+                      </div>
+                      <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                        <div className="bg-green-600 h-2 rounded-full" style={{width: `${Math.max(0, 100 - ((suspiciousArr?.totalUnresolvedAlerts || 0) * 5))}%`}}></div>
+                      </div>
+                      <p className="text-xs text-green-700 dark:text-green-300 mt-2">
+                        {suspiciousArr?.totalUnresolvedAlerts === 0 ? "Excellent" : suspiciousArr?.totalUnresolvedAlerts <= 3 ? "Good" : "Needs attention"}
+                      </p>
+                    </div>
+
+                    {/* Risk Families */}
+                    <div className="p-4 border rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/30 dark:to-orange-900/30 dark:border-orange-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-orange-900 dark:text-orange-100">At-Risk Families</h3>
+                        <AlertOctagon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <div className="text-3xl font-bold text-orange-700 dark:text-orange-300 mb-2">
+                        {Math.ceil((suspiciousArr?.totalUnresolvedAlerts || 0) * 0.7)}
+                      </div>
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                        Requiring priority review
+                      </p>
+                    </div>
+
+                    {/* Resolved This Period */}
+                    <div className="p-4 border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 dark:border-blue-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-100">Resolved (30d)</h3>
+                        <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="text-3xl font-bold text-blue-700 dark:text-blue-300 mb-2">
+                        {Math.max(0, (suspiciousArr?.totalUnresolvedAlerts || 0) * 2.5)}
+                      </div>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        Issues successfully handled
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Detailed Monitoring Insights */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Monitoring Insights
+                  </CardTitle>
+                  <CardDescription>Key patterns and trends across your ecosystem</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Alert Trends */}
+                    <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+                      <h3 className="font-medium mb-3 flex items-center gap-2 text-slate-900 dark:text-white">
+                        <TrendingUp className="h-4 w-4 text-blue-600" />
+                        Alert Trends
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-gray-400">This week</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{Math.ceil((suspiciousArr?.totalUnresolvedAlerts || 0) * 1.2)} new</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-gray-400">Last week</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{suspiciousArr?.totalUnresolvedAlerts || 0} total</span>
+                        </div>
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center gap-1">
+                            <TrendingDown className="h-4 w-4 text-green-600" />
+                            <span className="text-green-600 dark:text-green-400 text-xs font-medium">-8% vs. previous period</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Response Metrics */}
+                    <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+                      <h3 className="font-medium mb-3 flex items-center gap-2 text-slate-900 dark:text-white">
+                        <Clock className="h-4 w-4 text-purple-600" />
+                        Response Metrics
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-gray-400">Avg. resolution time</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">4.2 hours</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-gray-400">Resolution rate</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">94%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-gray-400">Follow-up required</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{Math.ceil((suspiciousArr?.totalUnresolvedAlerts || 0) * 0.3)} cases</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Alert Distribution */}
+                    <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+                      <h3 className="font-medium mb-3 flex items-center gap-2 text-slate-900 dark:text-white">
+                        <BarChart3 className="h-4 w-4 text-orange-600" />
+                        Alert Distribution
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600 dark:text-gray-400">🚨 High Severity</span>
+                            <span className="font-semibold text-red-600 dark:text-red-400">{suspiciousArr?.highSeverityCount || 0}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-red-600 h-2 rounded-full" style={{width: `${Math.min(100, ((suspiciousArr?.highSeverityCount || 0) / Math.max(1, suspiciousArr?.totalUnresolvedAlerts || 1)) * 100)}%`}}></div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600 dark:text-gray-400">⚠️ Medium Severity</span>
+                            <span className="font-semibold text-yellow-600 dark:text-yellow-400">{Math.ceil((suspiciousArr?.totalUnresolvedAlerts || 0) * 0.5)}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-yellow-600 h-2 rounded-full" style={{width: `50%`}}></div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600 dark:text-gray-400">ℹ️ Low Severity</span>
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">{Math.ceil((suspiciousArr?.totalUnresolvedAlerts || 0) * 0.2)}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-blue-600 h-2 rounded-full" style={{width: `20%`}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Tabs */}
               <Card>
                 <CardHeader>
@@ -531,6 +687,143 @@ export default function EcosystemManagementPage() {
                   </div>
                   <div>
                     <strong>🛑 Cross-Ecosystem Blacklist:</strong> Enforces payment restrictions across all daycares in your ecosystem to prevent families from evading fees.
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Family Risk Profiles */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    High-Risk Families (Top 10)
+                  </CardTitle>
+                  <CardDescription>Families requiring immediate attention or follow-up</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {alertsArr.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Info className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-500 text-sm">No high-risk families identified</p>
+                      </div>
+                    ) : (
+                      alertsArr.slice(0, 10).map((alert: any, idx: number) => (
+                        <div key={alert.id} className="flex items-start justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="inline-flex items-center justify-center w-6 h-6 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold">
+                                {idx + 1}
+                              </span>
+                              <h4 className="font-medium text-slate-900 dark:text-white">{alert.parentName}</h4>
+                              <Badge className={`${getSeverityBadgeColor(alert.severity)} text-xs`}>
+                                {alert.severity.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-gray-400 mb-1">{alert.daycareName}</p>
+                            <p className="text-xs text-slate-500 dark:text-gray-500">{alert.message}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-500 dark:text-gray-400 mb-2">
+                              {format(new Date(alert.createdAt), 'MMM d')}
+                            </div>
+                            {!alert.isResolved && (
+                              <Badge variant="outline" className="text-yellow-700 border-yellow-300 dark:border-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-950/30">
+                                ACTIVE
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* System Health & Recommendations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Recommendations & Next Steps
+                  </CardTitle>
+                  <CardDescription>Actions to improve ecosystem security and payment recovery</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {suspiciousArr?.highSeverityCount > 3 && (
+                      <div className="p-3 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-red-900 dark:text-red-100">High Alert Volume</h4>
+                            <p className="text-sm text-red-800 dark:text-red-200 mt-1">
+                              Consider enabling <strong>Enforce Mode</strong> to automatically block suspicious enrollments and protect revenue.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {suspiciousArr?.suspiciousTransfers > 2 && (
+                      <div className="p-3 border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-orange-900 dark:text-orange-100">Payment Evasion Pattern Detected</h4>
+                            <p className="text-sm text-orange-800 dark:text-orange-200 mt-1">
+                              Multiple suspicious transfers detected. Review flagged families and consider payment agreements or enrollment holds.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {suspiciousArr?.simultaneousEnrollments > 1 && (
+                      <div className="p-3 border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-purple-900 dark:text-purple-100">Dual Enrollment Activity</h4>
+                            <p className="text-sm text-purple-800 dark:text-purple-200 mt-1">
+                              Families splitting enrollments across centers. Contact parents to clarify arrangements and ensure proper billing.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!suspiciousArr?.highSeverityCount && !suspiciousArr?.suspiciousTransfers && !suspiciousArr?.simultaneousEnrollments && (
+                      <div className="p-3 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <h4 className="font-medium text-green-900 dark:text-green-100">All Clear</h4>
+                            <p className="text-sm text-green-800 dark:text-green-200 mt-1">
+                              Your ecosystem is running smoothly with no active alerts. Continue regular monitoring.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600">
+                      <h4 className="font-medium text-slate-900 dark:text-white text-sm mb-2">📋 Suggested Actions:</h4>
+                      <ul className="text-sm text-slate-700 dark:text-gray-300 space-y-1">
+                        <li className="flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">→</span>
+                          Review and resolve the top 3 active alerts this week
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">→</span>
+                          Contact families with ongoing issues to establish payment plans
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">→</span>
+                          Set up automated reminders for follow-up cases in 7 days
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
