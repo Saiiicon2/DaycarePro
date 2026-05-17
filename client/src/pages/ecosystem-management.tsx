@@ -50,14 +50,14 @@ export default function EcosystemManagementPage() {
 
   // Fetch suspicious activity for selected ecosystem
   const { data: suspiciousActivity } = useQuery({
-    queryKey: ['/api/ecosystems', activeEcosystemId, 'suspicious-activity', refreshCount],
+    queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/suspicious-activity` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
     enabled: !!activeEcosystemId,
   });
 
   // Fetch all alerts for selected ecosystem
   const { data: allAlerts } = useQuery({
-    queryKey: ['/api/ecosystems', activeEcosystemId, 'alerts', refreshCount],
+    queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/alerts` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
     enabled: !!activeEcosystemId,
   });
@@ -82,6 +82,8 @@ export default function EcosystemManagementPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/ecosystems'] });
+      qc.invalidateQueries({ queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/suspicious-activity` : null] });
+      qc.invalidateQueries({ queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/alerts` : null] });
       setRefreshCount(c => c + 1);
       toast({ title: 'Alert resolved' });
     },
