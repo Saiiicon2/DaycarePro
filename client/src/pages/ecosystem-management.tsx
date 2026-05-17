@@ -52,18 +52,25 @@ export default function EcosystemManagementPage() {
   const { data: suspiciousActivity } = useQuery({
     queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/suspicious-activity` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
-    enabled: !!activeEcosystemId,
+    enabled: false, // TEMPORARILY DISABLED FOR DEBUGGING
   });
 
   // Fetch all alerts for selected ecosystem
   const { data: allAlerts } = useQuery({
     queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/alerts` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
-    enabled: !!activeEcosystemId,
+    enabled: false, // TEMPORARILY DISABLED FOR DEBUGGING
   });
 
   const ecosystemsArr = Array.isArray(ecosystems) ? ecosystems : [];
-  const suspiciousArr = suspiciousActivity as any;
+  const suspiciousArr = suspiciousActivity ? (suspiciousActivity as any) : {
+    totalUnresolvedAlerts: 0,
+    simultaneousEnrollments: 0,
+    suspiciousTransfers: 0,
+    enrollmentAttempts: 0,
+    highSeverityCount: 0,
+    mediumSeverityCount: 0,
+  };
   const alertsArr = Array.isArray(allAlerts) ? allAlerts : [];
 
   // Determine which ecosystem to display
@@ -115,6 +122,13 @@ export default function EcosystemManagementPage() {
     <div className="flex h-screen bg-slate-50 dark:bg-gray-900">
       <Sidebar />
       <main className="flex-1 ml-64 overflow-auto p-6">
+        {/* TEST MODE BANNER */}
+        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 rounded-lg">
+          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+            ✓ TEST MODE ACTIVE - Render deployment confirmed working (Last updated: {new Date().toLocaleTimeString()})
+          </p>
+        </div>
+
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
