@@ -622,6 +622,10 @@ app.use(async (req: any, _res, next) => {
   app.get("/api/ecosystems/:id/alerts", isAuthenticated, adminOnly, async (req: any, res) => {
     try {
       const ecosystemId = Number(req.params.id);
+      if (isNaN(ecosystemId)) {
+        return res.status(400).json({ message: "Invalid ecosystem ID" });
+      }
+      
       const unresolved = req.query.unresolved === "true" ? true : undefined;
       const alertType = req.query.alertType ? String(req.query.alertType) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : 100;
@@ -634,7 +638,7 @@ app.use(async (req: any, _res, next) => {
       res.json(alerts);
     } catch (e) {
       console.error("Error fetching ecosystem alerts:", e);
-      res.status(500).json({ message: "Failed to fetch ecosystem alerts" });
+      res.status(500).json({ message: "Failed to fetch ecosystem alerts", error: String(e) });
     }
   });
 
@@ -645,6 +649,9 @@ app.use(async (req: any, _res, next) => {
   app.get("/api/ecosystems/:id/suspicious-activity", isAuthenticated, adminOnly, async (req: any, res) => {
     try {
       const ecosystemId = Number(req.params.id);
+      if (isNaN(ecosystemId)) {
+        return res.status(400).json({ message: "Invalid ecosystem ID" });
+      }
       
       // Get high-severity unresolved alerts
       const alerts = await storage.getEcosystemAlerts(ecosystemId, {
@@ -665,7 +672,7 @@ app.use(async (req: any, _res, next) => {
       res.json(suspicious);
     } catch (e) {
       console.error("Error fetching suspicious activity summary:", e);
-      res.status(500).json({ message: "Failed to fetch suspicious activity summary" });
+      res.status(500).json({ message: "Failed to fetch suspicious activity summary", error: String(e) });
     }
   });
 

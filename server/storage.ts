@@ -1036,14 +1036,14 @@ async getAlerts(resolved?: boolean, daycareId?: number): Promise<AlertWithDetail
     return rows.map(r => ({
       id: r.id,
       parentId: r.parentId,
-      parentName: `${r.parentFirstName} ${r.parentLastName}`,
+      parentName: `${r.parentFirstName || "Unknown"} ${r.parentLastName || ""}`.trim(),
       daycareId: r.daycareId,
       daycareName: r.daycareName || "Unknown",
       alertType: r.alertType,
       message: r.message,
       severity: r.severity,
-      isResolved: r.isResolved,
-      createdAt: r.createdAt,
+      isResolved: r.isResolved ? true : false,
+      createdAt: r.createdAt ? new Date(Number(r.createdAt) * 1000) : new Date(),
     }));
   }
 
