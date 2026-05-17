@@ -33,7 +33,7 @@ import {
   type AuditLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, or } from "drizzle-orm";
+import { eq, desc, and, sql, or, inArray } from "drizzle-orm";
 
 
 
@@ -1003,7 +1003,7 @@ async getAlerts(resolved?: boolean, daycareId?: number): Promise<AlertWithDetail
 
     if (daycareIds.length === 0) return [];
 
-    conds.push(sql`${paymentAlerts.daycareId} IN (${sql.join(daycareIds.map(d => d.id), sql`,`)})`);
+    conds.push(inArray(paymentAlerts.daycareId, daycareIds.map(d => d.id)));
 
     if (options?.unresolved === true) {
       conds.push(eq(paymentAlerts.isResolved, false));
