@@ -52,25 +52,18 @@ export default function EcosystemManagementPage() {
   const { data: suspiciousActivity } = useQuery({
     queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/suspicious-activity` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
-    enabled: false, // TEMPORARILY DISABLED FOR DEBUGGING
+    enabled: !!activeEcosystemId,
   });
 
   // Fetch all alerts for selected ecosystem
   const { data: allAlerts } = useQuery({
     queryKey: [activeEcosystemId ? `/api/ecosystems/${activeEcosystemId}/alerts` : null, refreshCount],
     queryFn: activeEcosystemId ? getQueryFn({ on401: 'returnNull' }) : () => Promise.resolve(null),
-    enabled: false, // TEMPORARILY DISABLED FOR DEBUGGING
+    enabled: !!activeEcosystemId,
   });
 
   const ecosystemsArr = Array.isArray(ecosystems) ? ecosystems : [];
-  const suspiciousArr = suspiciousActivity ? (suspiciousActivity as any) : {
-    totalUnresolvedAlerts: 0,
-    simultaneousEnrollments: 0,
-    suspiciousTransfers: 0,
-    enrollmentAttempts: 0,
-    highSeverityCount: 0,
-    mediumSeverityCount: 0,
-  };
+  const suspiciousArr = suspiciousActivity as any;
   const alertsArr = Array.isArray(allAlerts) ? allAlerts : [];
 
   // Determine which ecosystem to display
@@ -144,24 +137,32 @@ export default function EcosystemManagementPage() {
                 Cross-daycare fraud detection and family payment pattern analysis
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showSettings ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowSettings(!showSettings)}
+              >
+                ⚙️ Settings
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setRefreshCount(c => c + 1)}>
+                Refresh
+              </Button>
+            </div>
           </div>
 
-          {/* Maintenance Notice */}
-          <Card className="bg-amber-50 dark:bg-amber-950 border-2 border-amber-300 dark:border-amber-700">
+          <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900">
             <CardHeader>
-              <CardTitle className="text-amber-900 dark:text-amber-100 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Temporarily Under Maintenance
-              </CardTitle>
+              <CardTitle>What This Tab Is For</CardTitle>
+              <CardDescription>Monitor suspicious activity and enforce safety controls across your ecosystem.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 text-amber-900 dark:text-amber-100">
+            <CardContent className="space-y-3 text-slate-900 dark:text-slate-100 text-sm">
               <p>
-                We're debugging the backend API for ecosystem alerts and suspicious activity detection. The green banner at the top confirms that your Render deployment is working correctly.
+                This tab is your central command for Ecosystem Safety & Monitoring. It helps you identify duplicate enrollments, suspicious transfers, and other payment risk signals across all daycares in the selected ecosystem.
               </p>
-              <div className="bg-white dark:bg-slate-800 p-3 rounded text-sm space-y-1">
-                <p><strong>✓ Status:</strong> Frontend deployed to Render</p>
-                <p><strong>⏳ In Progress:</strong> Fixing backend API endpoints</p>
-              </div>
+              <p>
+                Use the controls below to review current alerts, resolve issues, and switch between monitor mode and enforcement mode for the selected ecosystem.
+              </p>
             </CardContent>
           </Card>
 
