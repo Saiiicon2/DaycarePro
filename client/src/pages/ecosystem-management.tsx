@@ -4,7 +4,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, XCircle, Info, AlertCircle, TrendingUp, Users, Shield, Toggle2, CheckCircle, TrendingDown, Activity, BarChart3, Clock, MapPin, DollarSign, AlertOctagon } from "lucide-react";
+import { AlertTriangle, XCircle, Info, AlertCircle, TrendingUp, Users, Shield, Settings, CheckCircle, TrendingDown, Activity, BarChart3, Clock, MapPin, DollarSign, AlertOctagon } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -170,7 +170,7 @@ export default function EcosystemManagementPage() {
             <Card className="border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Toggle2 className="h-5 w-5" />
+                  <Settings className="h-5 w-5" />
                   Enforcement Settings: {selectedEcosystem.name}
                 </CardTitle>
                 <CardDescription>
