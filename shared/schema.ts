@@ -47,9 +47,25 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
 
+// Ecosystems / accounts
+export const ecosystems = sqliteTable("ecosystems", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  accountId: text("account_id").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: integer("is_active", { mode: "boolean" }).default(true),
+  payfastMerchantId: text("payfast_merchant_id"),
+  payfastMerchantKey: text("payfast_merchant_key"),
+  payfastPassphrase: text("payfast_passphrase"),
+  payfastMode: text("payfast_mode").default("sandbox"),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
+});
+
 // Daycares
 export const daycares = sqliteTable("daycares", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  ecosystemId: integer("ecosystem_id"),
   name: text("name").notNull(),
   address: text("address").notNull(),
   phone: text("phone"),
@@ -74,6 +90,7 @@ export const memberships = sqliteTable("memberships", {
 // Parents
 export const parents = sqliteTable("parents", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  ecosystemId: integer("ecosystem_id"),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
@@ -129,6 +146,10 @@ export const payments = sqliteTable("payments", {
   paidDate: integer("paid_date", { mode: "timestamp" }),
   status: text("status").notNull().default("pending"),
   paymentMethod: text("payment_method"),
+  gatewayProvider: text("gateway_provider").default("local"),
+  gatewayStatus: text("gateway_status").default("pending"),
+  gatewayReference: text("gateway_reference"),
+  checkoutUrl: text("checkout_url"),
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
@@ -168,7 +189,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   memberships: many(memberships),
 }));
 
-export const daycaresRelations = relations(daycares, ({ many }) => ({
+export const ecosystemsRelations = relations(ecosystems, ({ many }) => ({
+  daycares: many(daycares),
+}));
+
+export const daycaresRelations = relations(daycares, ({ many, one }) => ({
+  ecosystem: one(ecosystems, { fields: [daycares.ecosystemId], references: [ecosystems.id] }),
   users: many(users),
   memberships: many(memberships),
   enrollments: many(enrollments),
@@ -181,6 +207,7 @@ export const membershipsRelations = relations(memberships, ({ one }) => ({
 }));
 
 export const parentsRelations = relations(parents, ({ one, many }) => ({
+  ecosystem: one(ecosystems, { fields: [parents.ecosystemId], references: [ecosystems.id] }),
   daycare: one(daycares, { fields: [parents.daycareId], references: [daycares.id] }),     // ⬅️ added
   children: many(children),
   payments: many(payments),
@@ -216,6 +243,7 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 /* ------------------- Insert Schemas & Types ------------------- */
 
 export const upsertUserSchema = createInsertSchema(users);
+export const insertEcosystemSchema = createInsertSchema(ecosystems);
 export const insertDaycareSchema = createInsertSchema(daycares);
 export const insertParentSchema = createInsertSchema(parents);
 export const insertChildSchema = z.object({
@@ -239,6 +267,8 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs);
 
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertEcosystem = z.infer<typeof insertEcosystemSchema>;
+export type Ecosystem = typeof ecosystems.$inferSelect;
 export type InsertDaycare = z.infer<typeof insertDaycareSchema>;
 export type Daycare = typeof daycares.$inferSelect;
 export type InsertParent = z.infer<typeof insertParentSchema>;

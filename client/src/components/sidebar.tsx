@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import useNightMode from "@/hooks/useNightMode";
 import {
   LayoutDashboard, Search, Users, Baby, Building2,
-  CreditCard, Settings, LogOut
+  CreditCard, Settings, LogOut, Shield,
+  Moon, Sun
 } from "lucide-react";
-import { Moon, Sun } from "lucide-react";
 
 interface NavItem {
   label: string;
@@ -150,35 +150,55 @@ export default function Sidebar() {
         </div>
 
         {(user?.role === "system_admin" || user?.role === "admin") && (
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
-              System
-            </p>
-            <Link href="/settings">
-              <div
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive("/settings")
-                    ? "bg-primary/10 text-primary"
-                    : "text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <Settings className="h-5 w-5" />
-                <span>Settings</span>
-              </div>
-            </Link>
-            <Link href="/users">
-              <div
-                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive("/users")
-                    ? "bg-primary/10 text-primary"
-                    : "text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <Users className="h-5 w-5" />
-                <span>Users</span>
-              </div>
-            </Link>
-          </div>
+          <>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
+                Ecosystem
+              </p>
+              <Link href="/ecosystem-management">
+                <div
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive("/ecosystem-management")
+                      ? "bg-primary/10 text-primary"
+                      : "text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Shield className="h-5 w-5" />
+                  <span>Safety & Monitoring</span>
+                </div>
+              </Link>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
+                System
+              </p>
+              <Link href="/settings">
+                <div
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive("/settings")
+                      ? "bg-primary/10 text-primary"
+                      : "text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
+                </div>
+              </Link>
+              <Link href="/users">
+                <div
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive("/users")
+                      ? "bg-primary/10 text-primary"
+                      : "text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Users className="h-5 w-5" />
+                  <span>Users</span>
+                </div>
+              </Link>
+            </div>
+          </>
         )}
       </nav>
 

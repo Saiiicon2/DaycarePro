@@ -1,5 +1,11 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
@@ -11,14 +17,20 @@ var __export = (target, all) => {
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  auditLogs: () => auditLogs,
+  auditLogsRelations: () => auditLogsRelations,
   children: () => children,
   childrenRelations: () => childrenRelations,
   daycares: () => daycares,
   daycaresRelations: () => daycaresRelations,
+  ecosystems: () => ecosystems,
+  ecosystemsRelations: () => ecosystemsRelations,
   enrollments: () => enrollments,
   enrollmentsRelations: () => enrollmentsRelations,
+  insertAuditLogSchema: () => insertAuditLogSchema,
   insertChildSchema: () => insertChildSchema,
   insertDaycareSchema: () => insertDaycareSchema,
+  insertEcosystemSchema: () => insertEcosystemSchema,
   insertEnrollmentSchema: () => insertEnrollmentSchema,
   insertMembershipSchema: () => insertMembershipSchema,
   insertParentSchema: () => insertParentSchema,
@@ -48,7 +60,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var insertMembershipSchema, membershipSchema, sessions, users, daycares, memberships, parents, children, enrollments, payments, paymentAlerts, usersRelations, daycaresRelations, membershipsRelations, parentsRelations, childrenRelations, enrollmentsRelations, paymentsRelations, paymentAlertsRelations, upsertUserSchema, insertDaycareSchema, insertParentSchema, insertChildSchema, insertEnrollmentSchema, insertPaymentSchema, insertPaymentAlertSchema;
+var insertMembershipSchema, membershipSchema, sessions, users, ecosystems, daycares, memberships, parents, children, enrollments, payments, paymentAlerts, auditLogs, usersRelations, ecosystemsRelations, daycaresRelations, membershipsRelations, parentsRelations, childrenRelations, enrollmentsRelations, paymentsRelations, paymentAlertsRelations, auditLogsRelations, upsertUserSchema, insertEcosystemSchema, insertDaycareSchema, insertParentSchema, insertChildSchema, insertEnrollmentSchema, insertPaymentSchema, insertPaymentAlertSchema, insertAuditLogSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -84,8 +96,22 @@ var init_schema = __esm({
       createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
       updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow()
     });
+    ecosystems = sqliteTable("ecosystems", {
+      id: integer("id").primaryKey({ autoIncrement: true }),
+      accountId: text("account_id").notNull().unique(),
+      name: text("name").notNull(),
+      description: text("description"),
+      isActive: integer("is_active", { mode: "boolean" }).default(true),
+      payfastMerchantId: text("payfast_merchant_id"),
+      payfastMerchantKey: text("payfast_merchant_key"),
+      payfastPassphrase: text("payfast_passphrase"),
+      payfastMode: text("payfast_mode").default("sandbox"),
+      createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
+      updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow()
+    });
     daycares = sqliteTable("daycares", {
       id: integer("id").primaryKey({ autoIncrement: true }),
+      ecosystemId: integer("ecosystem_id"),
       name: text("name").notNull(),
       address: text("address").notNull(),
       phone: text("phone"),
@@ -102,10 +128,12 @@ var init_schema = __esm({
       daycareId: integer("daycare_id").notNull(),
       role: text("role").notNull().default("owner"),
       // 'owner' | 'staff'
+      isActive: integer("is_active", { mode: "boolean" }).default(true),
       createdAt: integer("created_at", { mode: "timestamp" }).defaultNow()
     });
     parents = sqliteTable("parents", {
       id: integer("id").primaryKey({ autoIncrement: true }),
+      ecosystemId: integer("ecosystem_id"),
       firstName: text("first_name").notNull(),
       lastName: text("last_name").notNull(),
       email: text("email").notNull().unique(),
@@ -156,6 +184,10 @@ var init_schema = __esm({
       paidDate: integer("paid_date", { mode: "timestamp" }),
       status: text("status").notNull().default("pending"),
       paymentMethod: text("payment_method"),
+      gatewayProvider: text("gateway_provider").default("local"),
+      gatewayStatus: text("gateway_status").default("pending"),
+      gatewayReference: text("gateway_reference"),
+      checkoutUrl: text("checkout_url"),
       notes: text("notes"),
       createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
       updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow()
@@ -172,13 +204,32 @@ var init_schema = __esm({
       resolvedAt: integer("resolved_at", { mode: "timestamp" }),
       createdAt: integer("created_at", { mode: "timestamp" }).defaultNow()
     });
+    auditLogs = sqliteTable("audit_logs", {
+      id: integer("id").primaryKey({ autoIncrement: true }),
+      action: text("action").notNull(),
+      // e.g. 'blacklist', 'create_alert', 'create_invoice'
+      actorId: text("actor_id"),
+      // user id who performed the action
+      targetType: text("target_type"),
+      // e.g. 'parent', 'alert', 'payment'
+      targetId: text("target_id"),
+      // stringified id (nullable)
+      daycareId: integer("daycare_id"),
+      // optional org scope
+      payload: blob("payload", { mode: "json" }),
+      createdAt: integer("created_at", { mode: "timestamp" }).defaultNow()
+    });
     usersRelations = relations(users, ({ one, many }) => ({
       daycare: one(daycares, { fields: [users.daycareId], references: [daycares.id] }),
       // legacy
       activeDaycare: one(daycares, { fields: [users.activeDaycareId], references: [daycares.id] }),
       memberships: many(memberships)
     }));
-    daycaresRelations = relations(daycares, ({ many }) => ({
+    ecosystemsRelations = relations(ecosystems, ({ many }) => ({
+      daycares: many(daycares)
+    }));
+    daycaresRelations = relations(daycares, ({ many, one }) => ({
+      ecosystem: one(ecosystems, { fields: [daycares.ecosystemId], references: [ecosystems.id] }),
       users: many(users),
       memberships: many(memberships),
       enrollments: many(enrollments),
@@ -189,6 +240,7 @@ var init_schema = __esm({
       daycare: one(daycares, { fields: [memberships.daycareId], references: [daycares.id] })
     }));
     parentsRelations = relations(parents, ({ one, many }) => ({
+      ecosystem: one(ecosystems, { fields: [parents.ecosystemId], references: [ecosystems.id] }),
       daycare: one(daycares, { fields: [parents.daycareId], references: [daycares.id] }),
       // ⬅️ added
       children: many(children),
@@ -213,7 +265,11 @@ var init_schema = __esm({
       parent: one(parents, { fields: [paymentAlerts.parentId], references: [parents.id] }),
       daycare: one(daycares, { fields: [paymentAlerts.daycareId], references: [daycares.id] })
     }));
+    auditLogsRelations = relations(auditLogs, ({ one }) => ({
+      daycare: one(daycares, { fields: [auditLogs.daycareId], references: [daycares.id] })
+    }));
     upsertUserSchema = createInsertSchema(users);
+    insertEcosystemSchema = createInsertSchema(ecosystems);
     insertDaycareSchema = createInsertSchema(daycares);
     insertParentSchema = createInsertSchema(parents);
     insertChildSchema = z.object({
@@ -232,6 +288,7 @@ var init_schema = __esm({
     insertEnrollmentSchema = createInsertSchema(enrollments);
     insertPaymentSchema = createInsertSchema(payments);
     insertPaymentAlertSchema = createInsertSchema(paymentAlerts);
+    insertAuditLogSchema = createInsertSchema(auditLogs);
   }
 });
 
@@ -291,7 +348,8 @@ async function buildSessionUser(u) {
     lastName: u.lastName ?? null,
     role: u.role ?? "staff",
     activeDaycareId: active,
-    memberships: m
+    memberships: m,
+    accessibleDaycares: m.map((mm) => ({ id: mm.daycareId, name: mm.daycareName, role: mm.role }))
   };
 }
 async function persistActive(userId, daycareId) {
@@ -306,6 +364,9 @@ function setupLocalAuth(app2) {
     const licenseNumber = norm(req.body.licenseNumber) || null;
     const capacityRaw = req.body.capacity;
     const capacity = capacityRaw === void 0 || capacityRaw === null || capacityRaw === "" ? null : Number(capacityRaw);
+    const ecosystemId = req.body.ecosystemId ? Number(req.body.ecosystemId) : void 0;
+    const ecosystemName = norm(req.body.ecosystemName) || daycareName;
+    const ecosystemAccountId = norm(req.body.ecosystemAccountId) || randomUUID();
     const email = normEmail(req.body.email);
     const password = String(req.body.password ?? "");
     const firstName = norm(req.body.firstName) || null;
@@ -325,8 +386,35 @@ function setupLocalAuth(app2) {
       if (existingDc) {
         return res.status(409).json({ message: "A daycare with this name & address already exists" });
       }
+      let resolvedEcosystemId = null;
+      if (ecosystemId) {
+        if (loggedIn && !isAdmin2(req.session.user)) {
+          const [activeDaycare] = await db.select({ ecosystemId: daycares.ecosystemId }).from(daycares).where(eq3(daycares.id, req.session.user.activeDaycareId ?? 0));
+          if (!activeDaycare || activeDaycare.ecosystemId !== ecosystemId) {
+            return res.status(403).json({ message: "Cannot add a daycare to a different ecosystem" });
+          }
+        }
+        resolvedEcosystemId = ecosystemId;
+      }
+      if (loggedIn && !resolvedEcosystemId && req.session.user.activeDaycareId) {
+        const [activeDaycare] = await db.select({ ecosystemId: daycares.ecosystemId }).from(daycares).where(eq3(daycares.id, req.session.user.activeDaycareId));
+        if (activeDaycare?.ecosystemId) resolvedEcosystemId = activeDaycare.ecosystemId;
+      }
       const result = db.transaction((tx) => {
+        let ecosystemRow = null;
+        if (!loggedIn) {
+          const ecoInsert = tx.insert(ecosystems).values({
+            accountId: ecosystemAccountId,
+            name: ecosystemName,
+            description: `Ecosystem created for ${daycareName}`,
+            isActive: true,
+            createdAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).run();
+          resolvedEcosystemId = Number(ecoInsert.lastInsertRowid);
+        }
         const dcInsert = tx.insert(daycares).values({
+          ecosystemId: resolvedEcosystemId,
           name: daycareName,
           address,
           phone,
@@ -366,9 +454,7 @@ function setupLocalAuth(app2) {
             firstName,
             lastName,
             role: "owner",
-            // global role
             activeDaycareId: daycareId,
-            // start in this org
             createdAt: /* @__PURE__ */ new Date(),
             updatedAt: /* @__PURE__ */ new Date()
           }).run();
@@ -381,21 +467,24 @@ function setupLocalAuth(app2) {
           createdUser = tx.select().from(users).where(eq3(users.id, userId)).all()[0];
         }
         const dc = tx.select().from(daycares).where(eq3(daycares.id, daycareId)).all()[0];
-        return { daycare: dc, createdUser, daycareId };
+        return { daycare: dc, createdUser, daycareId, ecosystemId: resolvedEcosystemId };
       });
       if (result.createdUser) {
         const sessionUser = await buildSessionUser(result.createdUser);
         req.session.user = sessionUser;
-        return res.json({ user: sessionUser, daycare: result.daycare });
+        return res.json({ user: sessionUser, daycare: result.daycare, ecosystemId: result.ecosystemId });
       }
       const [freshUser] = await db.select().from(users).where(eq3(users.id, req.session.user.id));
       const refreshed = await buildSessionUser(freshUser);
       req.session.user = refreshed;
-      return res.json({ user: refreshed, daycare: result.daycare });
+      return res.json({ user: refreshed, daycare: result.daycare, ecosystemId: result.ecosystemId });
     } catch (e) {
       console.error("register-daycare error", e);
       if (e?.message === "Email already in use") return res.status(409).json({ message: e.message });
       if (e?.message === "Missing email or password for first owner") return res.status(400).json({ message: e.message });
+      if (e?.message?.includes("UNIQUE constraint failed: ecosystems.account_id")) {
+        return res.status(409).json({ message: "Ecosystem accountId already exists" });
+      }
       return res.status(500).json({ message: "Registration failed" });
     }
   });
@@ -431,7 +520,7 @@ function setupLocalAuth(app2) {
       res.status(500).json({ message: "Login failed" });
     }
   });
-  app2.post("/api/auth/switch-daycare", async (req, res) => {
+  async function handleSwitchDaycare(req, res) {
     const u = req.session?.user;
     if (!u) return res.status(401).json({ message: "Not authenticated" });
     const daycareId = Number(req.body.daycareId);
@@ -443,7 +532,9 @@ function setupLocalAuth(app2) {
     const sessionUser = await buildSessionUser(freshUser);
     req.session.user = sessionUser;
     res.json(sessionUser);
-  });
+  }
+  app2.post("/api/auth/switch-daycare", handleSwitchDaycare);
+  app2.post("/api/auth/active-daycare", handleSwitchDaycare);
   app2.get("/api/auth/memberships", async (req, res) => {
     const u = req.session?.user;
     if (!u) return res.status(401).json({ message: "Not authenticated" });
@@ -455,17 +546,18 @@ function setupLocalAuth(app2) {
     if (user) return res.json(user);
     return res.status(401).json({ message: "Not authenticated" });
   });
-  app2.post("/api/auth/logout", (req, res, next) => {
-    req.session.destroy((err) => {
-      if (err) return next(err);
-      res.clearCookie("connect.sid", {
-        httpOnly: true,
-        sameSite: isProd ? "none" : "lax",
-        secure: isProd,
-        path: "/"
+  app2.post("/api/auth/logout", async (req, res) => {
+    try {
+      const sid = req.session?.id;
+      req.session?.destroy?.(() => {
       });
-      res.json({ ok: true });
-    });
+      res.clearCookie("connect.sid");
+      res.clearCookie("sid");
+      res.status(204).end();
+    } catch (e) {
+      console.error("Logout error:", e);
+      res.status(500).json({ message: "Logout failed" });
+    }
   });
 }
 var isProd, norm, normEmail, isAuthenticated;
@@ -496,12 +588,28 @@ import "dotenv/config";
 
 // server/routes.ts
 import { createServer } from "http";
+import { createHash } from "crypto";
 
 // server/storage.ts
 init_schema();
 init_db();
 import { eq, desc, and, sql, or } from "drizzle-orm";
 var DatabaseStorage = class {
+  // Daycares the user can access (via memberships). Admins won’t use this.
+  async getUserDaycares(userId) {
+    const rows = await db.select({
+      id: daycares.id,
+      name: daycares.name,
+      address: daycares.address,
+      phone: daycares.phone,
+      isActive: daycares.isActive
+    }).from(memberships).leftJoin(daycares, eq(memberships.daycareId, daycares.id)).where(and(
+      eq(memberships.userId, userId),
+      eq(memberships.isActive, true),
+      eq(daycares.isActive, true)
+    )).orderBy(daycares.name);
+    return rows;
+  }
   async getMemberships(userId) {
     return await db.select().from(memberships).where(eq(memberships.userId, userId));
   }
@@ -514,6 +622,13 @@ var DatabaseStorage = class {
       eq(memberships.userId, userId),
       eq(memberships.daycareId, daycareId)
     ));
+  }
+  async updateMembership(userId, daycareId, updates) {
+    const setObj = {};
+    if (updates.role !== void 0) setObj.role = updates.role;
+    if (updates.isActive !== void 0) setObj.isActive = updates.isActive;
+    const [row] = await db.update(memberships).set(setObj).where(and(eq(memberships.userId, userId), eq(memberships.daycareId, daycareId))).returning();
+    return row;
   }
   async userCanAccessDaycare(userId, daycareId) {
     const [row] = await db.select({ id: memberships.id }).from(memberships).where(and(
@@ -546,6 +661,7 @@ var DatabaseStorage = class {
       profileImageUrl: users.profileImageUrl,
       role: users.role,
       daycareId: users.daycareId,
+      activeDaycareId: users.activeDaycareId,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt
     }).from(users).where(eq(users.email, email));
@@ -569,6 +685,28 @@ var DatabaseStorage = class {
     const [daycare] = await db.select().from(daycares).where(eq(daycares.id, id));
     return daycare;
   }
+  async getEcosystems() {
+    return await db.select().from(ecosystems).where(eq(ecosystems.isActive, true)).orderBy(ecosystems.name);
+  }
+  async getEcosystem(id) {
+    const [ecosystem] = await db.select().from(ecosystems).where(eq(ecosystems.id, id));
+    return ecosystem;
+  }
+  async getEcosystemByAccountId(accountId) {
+    const [ecosystem] = await db.select().from(ecosystems).where(eq(ecosystems.accountId, accountId));
+    return ecosystem;
+  }
+  async createEcosystem(ecosystem) {
+    const [newEcosystem] = await db.insert(ecosystems).values(ecosystem).returning();
+    return newEcosystem;
+  }
+  async updateEcosystem(id, ecosystem) {
+    const [updatedEcosystem] = await db.update(ecosystems).set({ ...ecosystem, updatedAt: /* @__PURE__ */ new Date() }).where(eq(ecosystems.id, id)).returning();
+    return updatedEcosystem;
+  }
+  async getDaycaresByEcosystem(ecosystemId) {
+    return await db.select().from(daycares).where(and(eq(daycares.ecosystemId, ecosystemId), eq(daycares.isActive, true))).orderBy(daycares.name);
+  }
   async createDaycare(daycare) {
     const [newDaycare] = await db.insert(daycares).values(daycare).returning();
     return newDaycare;
@@ -578,7 +716,7 @@ var DatabaseStorage = class {
     return updatedDaycare;
   }
   // Parents
-  async getParents(search, daycareId) {
+  async getParents(search, daycareId, ecosystemId) {
     const conds = [];
     if (search && search.trim()) {
       const term = `%${search.trim().toLowerCase()}%`;
@@ -591,6 +729,7 @@ var DatabaseStorage = class {
       );
     }
     if (daycareId) conds.push(eq(parents.daycareId, daycareId));
+    if (ecosystemId) conds.push(eq(parents.ecosystemId, ecosystemId));
     if (conds.length) {
       return await db.select().from(parents).where(and(...conds)).orderBy(parents.lastName, parents.firstName);
     } else {
@@ -604,6 +743,10 @@ var DatabaseStorage = class {
   async getParentByEmail(email) {
     console.log("email:", email);
     const [parent] = await db.select().from(parents).where(eq(parents.email, email));
+    return parent;
+  }
+  async getParentByEmailInEcosystem(email, ecosystemId) {
+    const [parent] = await db.select().from(parents).where(and(eq(parents.email, email), eq(parents.ecosystemId, ecosystemId))).limit(1);
     return parent;
   }
   async getParentWithChildren(id) {
@@ -646,6 +789,66 @@ var DatabaseStorage = class {
     const [child] = await db.select().from(children).where(eq(children.id, id));
     return child;
   }
+  // Counts and cascade helpers for safe deletes
+  async countPaymentsByParent(parentId) {
+    const [r] = await db.select({ count: sql`count(*)` }).from(payments).where(eq(payments.parentId, parentId));
+    return r.count || 0;
+  }
+  async countEnrollmentsByChild(childId) {
+    const [r] = await db.select({ count: sql`count(*)` }).from(enrollments).where(eq(enrollments.childId, childId));
+    return r.count || 0;
+  }
+  // Delete payments for a parent
+  async deletePaymentsByParent(parentId) {
+    await db.delete(payments).where(eq(payments.parentId, parentId));
+  }
+  // Delete payments for a set of enrollment IDs
+  async deletePaymentsByEnrollmentIds(enrollmentIds) {
+    if (!enrollmentIds || enrollmentIds.length === 0) return;
+    await db.delete(payments).where(sql`enrollment_id IN (${sql.join(enrollmentIds.map((id) => sql`${id}`), sql`,`)})`);
+  }
+  // Delete enrollments for a child
+  async deleteEnrollmentsByChild(childId) {
+    await db.delete(enrollments).where(eq(enrollments.childId, childId));
+  }
+  // Delete children for a parent
+  async deleteChildrenByParent(parentId) {
+    await db.delete(children).where(eq(children.parentId, parentId));
+  }
+  // Cascade delete: child -> enrollments -> payments -> child
+  async deleteChildCascade(childId) {
+    const enrs = await db.select({ id: enrollments.id }).from(enrollments).where(eq(enrollments.childId, childId));
+    const ids = enrs.map((e) => e.id).filter(Boolean);
+    if (ids.length) {
+      await this.deletePaymentsByEnrollmentIds(ids);
+      await db.delete(enrollments).where(sql`id IN (${sql.join(ids.map((id) => sql`${id}`), sql`,`)})`);
+    }
+    await db.delete(children).where(eq(children.id, childId));
+  }
+  // Cascade delete for parent: payments (by parent), for each child delete enrollments/payments then children, then parent
+  async deleteParentCascade(parentId) {
+    await this.deletePaymentsByParent(parentId);
+    const childRows = await db.select({ id: children.id }).from(children).where(eq(children.parentId, parentId));
+    const childIds = childRows.map((c) => c.id).filter(Boolean);
+    for (const cid of childIds) {
+      await this.deleteChildCascade(cid);
+    }
+    await db.delete(parents).where(eq(parents.id, parentId));
+  }
+  // List enrollments (optionally scoped to a daycare)
+  async getEnrollments(daycareId) {
+    const conds = [];
+    if (daycareId) conds.push(eq(enrollments.daycareId, daycareId));
+    const base = db.select({ enrollment: enrollments, child: children, daycare: daycares }).from(enrollments).leftJoin(children, eq(enrollments.childId, children.id)).leftJoin(daycares, eq(enrollments.daycareId, daycares.id));
+    const q = conds.length ? base.where(and(...conds)) : base;
+    const rows = await q.orderBy(desc(enrollments.createdAt));
+    const results = [];
+    for (const r of rows) {
+      const pay = await db.select().from(payments).where(eq(payments.enrollmentId, r.enrollment.id));
+      results.push({ ...r.enrollment, child: r.child, daycare: r.daycare, payments: pay });
+    }
+    return results;
+  }
   async createChild(child) {
     console.log(" Incoming child data:", child);
     const parsedChild = {
@@ -660,25 +863,38 @@ var DatabaseStorage = class {
     return newChild;
   }
   async updateChild(id, child) {
-    const [updatedChild] = await db.update(children).set({ ...child, updatedAt: /* @__PURE__ */ new Date() }).where(eq(children.id, id)).returning();
+    const sanitized = { ...child };
+    if (sanitized.createdAt !== void 0) sanitized.createdAt = new Date(Number(sanitized.createdAt));
+    if (sanitized.dateOfBirth !== void 0) sanitized.dateOfBirth = new Date(String(sanitized.dateOfBirth));
+    sanitized.updatedAt = /* @__PURE__ */ new Date();
+    const [updatedChild] = await db.update(children).set(sanitized).where(eq(children.id, id)).returning();
     return updatedChild;
   }
+  // Delete operations (admin-only endpoints will use these)
+  async deleteParent(id) {
+    await db.delete(parents).where(eq(parents.id, id));
+  }
+  async deleteDaycare(id) {
+    await db.delete(daycares).where(eq(daycares.id, id));
+  }
+  async deleteChild(id) {
+    await db.delete(children).where(eq(children.id, id));
+  }
   // Enrollment operations
-  async getEnrollments(daycareId) {
-    const base = db.select({
+  async getEnrollment(id) {
+    const [r] = await db.select({
       enrollment: enrollments,
       child: children,
       daycare: daycares
-    }).from(enrollments).leftJoin(children, eq(enrollments.childId, children.id)).leftJoin(daycares, eq(enrollments.daycareId, daycares.id));
-    const q = daycareId ? base.where(eq(enrollments.daycareId, daycareId)) : base;
-    const results = await q.orderBy(desc(enrollments.startDate));
-    return results.map((r) => ({
+    }).from(enrollments).leftJoin(children, eq(enrollments.childId, children.id)).leftJoin(daycares, eq(enrollments.daycareId, daycares.id)).where(eq(enrollments.id, id));
+    if (!r) return void 0;
+    const pay = await db.select().from(payments).where(eq(payments.enrollmentId, id));
+    return {
       ...r.enrollment,
       child: r.child,
       daycare: r.daycare,
-      payments: []
-      // populate lazily if/when needed
-    }));
+      payments: pay
+    };
   }
   async createEnrollment(enrollment) {
     const [newEnrollment] = await db.insert(enrollments).values(enrollment).returning();
@@ -753,6 +969,29 @@ var DatabaseStorage = class {
     const [newAlert] = await db.insert(paymentAlerts).values(alert).returning();
     return newAlert;
   }
+  // Audit log operations
+  async addAudit(entry) {
+    const toInsert = {
+      action: entry.action,
+      actorId: entry.actorId ?? null,
+      targetType: entry.targetType ?? null,
+      targetId: entry.targetId != null ? String(entry.targetId) : null,
+      daycareId: entry.daycareId ?? null,
+      payload: entry.payload ?? {},
+      createdAt: /* @__PURE__ */ new Date()
+    };
+    const [row] = await db.insert(auditLogs).values(toInsert).returning();
+    return row;
+  }
+  async getAudits(filter) {
+    const conds = [];
+    if (filter?.daycareId) conds.push(eq(auditLogs.daycareId, filter.daycareId));
+    if (filter?.actorId) conds.push(eq(auditLogs.actorId, filter.actorId));
+    if (filter?.action) conds.push(eq(auditLogs.action, filter.action));
+    const q = conds.length ? db.select().from(auditLogs).where(and(...conds)) : db.select().from(auditLogs);
+    const rows = await q.orderBy(desc(auditLogs.createdAt)).limit(filter?.limit ?? 100);
+    return rows;
+  }
   async resolveAlert(id, resolvedBy) {
     const [resolvedAlert] = await db.update(paymentAlerts).set({
       isResolved: true,
@@ -760,6 +999,160 @@ var DatabaseStorage = class {
       resolvedAt: /* @__PURE__ */ new Date()
     }).where(eq(paymentAlerts.id, id)).returning();
     return resolvedAlert;
+  }
+  // ===== ECOSYSTEM SAFETY CHECKS =====
+  /**
+   * Check if a child has simultaneous active enrollments across multiple daycares in the same ecosystem
+   */
+  async checkSimultaneousEnrollments(childId) {
+    const rows = await db.select({
+      daycareId: enrollments.daycareId,
+      daycareName: daycares.name,
+      startDate: enrollments.startDate,
+      endDate: enrollments.endDate,
+      status: enrollments.status
+    }).from(enrollments).leftJoin(daycares, eq(enrollments.daycareId, daycares.id)).where(and(
+      eq(enrollments.childId, childId),
+      eq(enrollments.status, "active")
+    ));
+    return {
+      hasMultipleEnrollments: rows.length > 1,
+      enrollments: rows.map((r) => ({
+        daycareId: r.daycareId,
+        daycareName: r.daycareName || "Unknown",
+        startDate: r.startDate,
+        endDate: r.endDate,
+        status: r.status
+      }))
+    };
+  }
+  /**
+   * Check if a parent recently transferred a child after due/overdue payments
+   * Returns suspicious transfers within the last N days
+   */
+  async checkRecentTransfersAfterDuePayments(parentId, ecosystemId, days = 30) {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1e3);
+    const childRows = await db.select({ id: children.id, firstName: children.firstName, lastName: children.lastName }).from(children).where(eq(children.parentId, parentId));
+    const transfers = [];
+    for (const child of childRows) {
+      const enrs = await db.select({
+        enrollmentId: enrollments.id,
+        daycareId: enrollments.daycareId,
+        daycareName: daycares.name,
+        startDate: enrollments.startDate,
+        endDate: enrollments.endDate,
+        status: enrollments.status
+      }).from(enrollments).leftJoin(daycares, eq(enrollments.daycareId, daycares.id)).where(eq(enrollments.childId, child.id)).orderBy(enrollments.startDate);
+      for (let i = 0; i < enrs.length - 1; i++) {
+        const current = enrs[i];
+        const next = enrs[i + 1];
+        if (current.endDate && next.startDate) {
+          const transferDate = new Date(next.startDate);
+          if (transferDate >= cutoffDate) {
+            const [duePayments] = await db.select({ count: sql`count(*)` }).from(payments).where(and(
+              eq(payments.parentId, parentId),
+              eq(payments.status, "overdue")
+            ));
+            const [recentDuePayment] = await db.select({ dueDate: payments.dueDate }).from(payments).where(and(
+              eq(payments.parentId, parentId),
+              sql`${payments.dueDate} < strftime('%s', 'now')`
+            )).orderBy(desc(payments.dueDate)).limit(1);
+            transfers.push({
+              childId: child.id,
+              childName: `${child.firstName} ${child.lastName}`,
+              fromDaycare: current.daycareName || "Unknown",
+              toDaycare: next.daycareName || "Unknown",
+              transferDate,
+              outstandingPayments: duePayments.count || 0,
+              lastDueDate: recentDuePayment?.dueDate ? new Date(Number(recentDuePayment.dueDate)) : null
+            });
+          }
+        }
+      }
+    }
+    return {
+      hasSuspiciousTransfer: transfers.length > 0,
+      detail: transfers
+    };
+  }
+  /**
+   * Get parent's complete profile across entire ecosystem
+   */
+  async getParentEcosystemProfile(parentId, ecosystemId) {
+    const parent = await this.getParent(parentId);
+    if (!parent) throw new Error("Parent not found");
+    const daycareList = await db.select({ id: daycares.id, name: daycares.name }).from(daycares).where(eq(daycares.ecosystemId, ecosystemId));
+    const childList = await db.select({ id: children.id }).from(children).where(eq(children.parentId, parentId));
+    const enrollmentHistory = [];
+    for (const child of childList) {
+      const enrs = await db.select({
+        daycareName: daycares.name,
+        startDate: enrollments.startDate,
+        endDate: enrollments.endDate,
+        status: enrollments.status
+      }).from(enrollments).leftJoin(daycares, eq(enrollments.daycareId, daycares.id)).where(and(
+        eq(enrollments.childId, child.id),
+        sql`${daycares.ecosystemId} = ${ecosystemId}`
+      ));
+      enrollmentHistory.push(...enrs.map((e) => ({
+        daycareName: e.daycareName || "Unknown",
+        startDate: e.startDate,
+        endDate: e.endDate,
+        status: e.status
+      })));
+    }
+    const [issueCount] = await db.select({ count: sql`count(*)` }).from(payments).where(and(
+      eq(payments.parentId, parentId),
+      sql`${payments.status} IN ('overdue', 'missed')`
+    ));
+    return {
+      parent,
+      allDaycares: daycareList.map((d) => ({ daycareId: d.id, daycareName: d.name })),
+      enrollmentHistory: enrollmentHistory.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
+      totalOwedAcrossEcosystem: parent.totalOwed || 0,
+      paymentIssuesCount: issueCount.count || 0,
+      isBlacklistedAcrossEcosystem: parent.isBlacklisted || false
+    };
+  }
+  /**
+   * Get ecosystem-wide alerts with filtering
+   */
+  async getEcosystemAlerts(ecosystemId, options) {
+    const conds = [];
+    const daycareIds = await db.select({ id: daycares.id }).from(daycares).where(eq(daycares.ecosystemId, ecosystemId));
+    if (daycareIds.length === 0) return [];
+    conds.push(sql`${paymentAlerts.daycareId} IN (${sql.join(daycareIds.map((d) => d.id), sql`,`)})`);
+    if (options?.unresolved === true) {
+      conds.push(eq(paymentAlerts.isResolved, false));
+    }
+    if (options?.alertType) {
+      conds.push(eq(paymentAlerts.alertType, options.alertType));
+    }
+    const rows = await db.select({
+      id: paymentAlerts.id,
+      parentId: paymentAlerts.parentId,
+      parentFirstName: parents.firstName,
+      parentLastName: parents.lastName,
+      daycareId: paymentAlerts.daycareId,
+      daycareName: daycares.name,
+      alertType: paymentAlerts.alertType,
+      message: paymentAlerts.message,
+      severity: paymentAlerts.severity,
+      isResolved: paymentAlerts.isResolved,
+      createdAt: paymentAlerts.createdAt
+    }).from(paymentAlerts).leftJoin(parents, eq(paymentAlerts.parentId, parents.id)).leftJoin(daycares, eq(paymentAlerts.daycareId, daycares.id)).where(conds.length > 0 ? and(...conds) : void 0).orderBy(desc(paymentAlerts.createdAt)).limit(options?.limit ?? 100);
+    return rows.map((r) => ({
+      id: r.id,
+      parentId: r.parentId,
+      parentName: `${r.parentFirstName} ${r.parentLastName}`,
+      daycareId: r.daycareId,
+      daycareName: r.daycareName || "Unknown",
+      alertType: r.alertType,
+      message: r.message,
+      severity: r.severity,
+      isResolved: r.isResolved,
+      createdAt: r.createdAt
+    }));
   }
   // Analytics
   async getDashboardStats() {
@@ -829,19 +1222,200 @@ async function registerRoutes(app2) {
   };
   const { setupLocalAuth: setupLocalAuth2, isAuthenticated: isAuthenticated2 } = await Promise.resolve().then(() => (init_localAuth(), localAuth_exports));
   setupLocalAuth2(app2);
+  app2.post("/api/auth/active-daycare", isAuthenticated2, async (req, res) => {
+    const { daycareId } = req.body ?? {};
+    if (!daycareId) return res.status(400).json({ message: "daycareId required" });
+    const ok = await storage.userCanAccessDaycare(req.user.id, Number(daycareId));
+    if (!ok) return res.status(403).json({ message: "You don\u2019t have access to that daycare" });
+    if (req.session) {
+      req.session.user = { ...req.session.user || {}, activeDaycareId: Number(daycareId) };
+    }
+    req.user.activeDaycareId = Number(daycareId);
+    res.status(204).end();
+  });
+  app2.get("/api/ecosystems", isAuthenticated2, adminOnly, async (_req, res) => {
+    try {
+      const rows = await storage.getEcosystems();
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching ecosystems:", error);
+      res.status(500).json({ message: "Failed to fetch ecosystems" });
+    }
+  });
+  app2.post("/api/ecosystems", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const data = z2.object({
+        accountId: z2.string().min(1),
+        name: z2.string().min(1),
+        description: z2.string().optional(),
+        payfastMerchantId: z2.string().optional(),
+        payfastMerchantKey: z2.string().optional(),
+        payfastPassphrase: z2.string().optional(),
+        payfastMode: z2.enum(["sandbox", "live"]).default("sandbox")
+      }).parse(req.body);
+      const row = await storage.createEcosystem(data);
+      res.status(201).json(row);
+    } catch (error) {
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: "Invalid ecosystem data", errors: error.errors });
+      }
+      console.error("Error creating ecosystem:", error);
+      res.status(500).json({ message: "Failed to create ecosystem" });
+    }
+  });
+  app2.get("/api/ecosystems/:id/daycares", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const rows = await storage.getDaycaresByEcosystem(ecosystemId);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching daycares for ecosystem:", error);
+      res.status(500).json({ message: "Failed to fetch ecosystem daycares" });
+    }
+  });
+  app2.get("/api/daycares", isAuthenticated2, async (req, res) => {
+    try {
+      const u = req.user;
+      const ecosystemId = req.query.ecosystemId ? Number(req.query.ecosystemId) : void 0;
+      const list = isAdmin3(u) ? ecosystemId ? await storage.getDaycaresByEcosystem(ecosystemId) : await storage.getDaycares() : await storage.getUserDaycares(u.id);
+      res.json(list);
+    } catch (err) {
+      console.error("Error fetching daycares:", err);
+      res.status(500).json({ message: "Failed to fetch daycare centers" });
+    }
+  });
+  app2.use("/api", isAuthenticated2, async (req, _res, next) => {
+    try {
+      const u = req.user;
+      if (!isAdmin3(u) && !u.activeDaycareId) {
+        const ms = await storage.getMemberships(u.id);
+        if (ms?.length) {
+          const firstDcId = ms[0].daycareId;
+          if (req.session) {
+            req.session.user = { ...req.session.user || {}, activeDaycareId: firstDcId };
+          }
+          req.user.activeDaycareId = firstDcId;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not set activeDaycareId:", e);
+    }
+    next();
+  });
   app2.use(async (req, _res, next) => {
     try {
       if (req.user?.id) {
         const fresh = await storage.getUser(req.user.id);
         if (fresh) req.user = fresh;
       }
-    } catch (e) {
-      console.error("hydrate user failed:", e);
+    } catch {
     }
     next();
   });
   app2.get("/api/auth/user", isAuthenticated2, async (req, res) => {
     res.json(req.user);
+  });
+  app2.get("/api/users", isAuthenticated2, adminOnly, async (_req, res) => {
+    try {
+      const rows = await storage.getUsers();
+      res.json(rows);
+    } catch (e) {
+      console.error("Error fetching users:", e);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+  app2.post("/api/users", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const data = upsertUserSchema.partial().extend({
+        password: z2.string().optional()
+      }).parse(req.body);
+      const bcrypt2 = await import("bcryptjs");
+      if (data.password) {
+        const hashed = await bcrypt2.hash(data.password, 10);
+        data.password = hashed;
+      }
+      if (!data.id) {
+        try {
+          data.id = globalThis.crypto?.randomUUID?.() ?? String(Date.now()) + Math.random().toString(36).slice(2);
+        } catch {
+          data.id = String(Date.now()) + Math.random().toString(36).slice(2);
+        }
+      }
+      const created = await storage.createUser(data);
+      res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+  app2.put("/api/users/:id", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const id = String(req.params.id);
+      const data = upsertUserSchema.partial().extend({ password: z2.string().optional() }).parse(req.body);
+      if (data.password) {
+        const bcrypt2 = await import("bcryptjs");
+        data.password = await bcrypt2.hash(data.password, 10);
+      }
+      const toUpsert = { ...data, id };
+      const updated = await storage.upsertUser(toUpsert);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+  app2.get("/api/users/:id/memberships", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const userId = String(req.params.id);
+      const rows = await storage.getMemberships(userId);
+      res.json(rows);
+    } catch (e) {
+      console.error("Error fetching memberships:", e);
+      res.status(500).json({ message: "Failed to fetch memberships" });
+    }
+  });
+  app2.post("/api/users/:id/memberships", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const userId = String(req.params.id);
+      const Body = z2.object({ daycareId: z2.number().int().positive(), role: z2.enum(["daycare", "manager", "admin"]).optional() });
+      const { daycareId, role } = Body.parse(req.body);
+      const row = await storage.addMembership(userId, daycareId, role);
+      res.status(201).json(row);
+    } catch (e) {
+      if (e instanceof z2.ZodError) return res.status(400).json({ message: "Invalid membership data", errors: e.errors });
+      console.error("Error adding membership:", e);
+      res.status(500).json({ message: "Failed to add membership" });
+    }
+  });
+  app2.delete("/api/users/:id/memberships/:daycareId", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const userId = String(req.params.id);
+      const daycareId = Number(req.params.daycareId);
+      await storage.removeMembership(userId, daycareId);
+      res.status(204).end();
+    } catch (e) {
+      console.error("Error removing membership:", e);
+      res.status(500).json({ message: "Failed to remove membership" });
+    }
+  });
+  app2.put("/api/users/:id/memberships", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const userId = String(req.params.id);
+      const Body = z2.object({ daycareId: z2.number().int().positive(), role: z2.string().optional(), isActive: z2.boolean().optional() });
+      const { daycareId, role, isActive } = Body.parse(req.body);
+      const row = await storage.updateMembership(userId, daycareId, { role, isActive });
+      res.json(row);
+    } catch (e) {
+      if (e instanceof z2.ZodError) return res.status(400).json({ message: "Invalid membership update", errors: e.errors });
+      console.error("Error updating membership:", e);
+      res.status(500).json({ message: "Failed to update membership" });
+    }
   });
   app2.get("/api/dashboard/stats", isAuthenticated2, async (_req, res) => {
     try {
@@ -860,15 +1434,6 @@ async function registerRoutes(app2) {
       next(e);
     }
   });
-  app2.get("/api/daycares", isAuthenticated2, async (_req, res) => {
-    try {
-      const rows = await storage.getDaycares();
-      res.json(rows);
-    } catch (e) {
-      console.error("Error fetching daycares:", e);
-      res.status(500).json({ message: "Failed to fetch daycare centers" });
-    }
-  });
   app2.get("/api/daycares/:id", isAuthenticated2, async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -880,39 +1445,44 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch daycare center" });
     }
   });
-  app2.post("/api/daycares", isAuthenticated2, adminOnly, async (req, res) => {
-    try {
-      const BodySchema = insertDaycareSchema.extend({
-        ownerEmail: z2.string().email().optional()
-      });
-      const { ownerEmail, ...daycarePayload } = BodySchema.parse(req.body);
-      const daycare = await storage.createDaycare(daycarePayload);
-      let ownerLinked = false;
-      let ownerUserId;
-      if (ownerEmail) {
-        const email = ownerEmail.trim().toLowerCase();
-        const user = await storage.getUserByEmail(email);
-        if (user) {
-          await storage.addMembership(user.id, daycare.id, "manager");
-          ownerLinked = true;
-          ownerUserId = user.id;
+  app2.post(
+    "/api/daycares",
+    isAuthenticated2,
+    adminOnly,
+    async (req, res) => {
+      try {
+        const BodySchema = insertDaycareSchema.extend({
+          ownerEmail: z2.string().email().optional(),
+          ecosystemId: z2.number().int().positive().optional()
+        });
+        const { ownerEmail, ...daycarePayload } = BodySchema.parse(req.body);
+        const daycare = await storage.createDaycare(daycarePayload);
+        let ownerLinked = false;
+        let ownerUserId = null;
+        if (ownerEmail) {
+          const email = ownerEmail.trim().toLowerCase();
+          const user = await storage.getUserByEmail(email);
+          if (user) {
+            await storage.addMembership(user.id, daycare.id, "manager");
+            ownerLinked = true;
+            ownerUserId = user.id;
+          }
         }
+        return res.status(201).json({
+          daycare,
+          ownerLinked,
+          ownerUserId,
+          message: ownerEmail && !ownerLinked ? "Daycare created. No user with that email; assign later." : "Daycare created."
+        });
+      } catch (error) {
+        if (error instanceof z2.ZodError) {
+          return res.status(400).json({ message: "Invalid daycare data", errors: error.errors });
+        }
+        console.error("Error creating daycare:", error);
+        res.status(500).json({ message: "Failed to create daycare center" });
       }
-      return res.status(201).json({
-        daycare,
-        ownerLinked,
-        // true if membership created
-        ownerUserId: ownerUserId ?? null,
-        message: ownerEmail && !ownerLinked ? "Daycare created. No user with that email; assign later." : "Daycare created."
-      });
-    } catch (error) {
-      if (error instanceof z2.ZodError) {
-        return res.status(400).json({ message: "Invalid daycare data", errors: error.errors });
-      }
-      console.error("Error creating daycare:", error);
-      res.status(500).json({ message: "Failed to create daycare center" });
     }
-  });
+  );
   app2.put("/api/daycares/:id", isAuthenticated2, async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -961,12 +1531,26 @@ async function registerRoutes(app2) {
         if (!resolvedDaycareId) {
           return res.status(400).json({ message: "Please choose a daycare for this parent (daycareId)." });
         }
+        const resolvedDaycare = await storage.getDaycare(resolvedDaycareId);
+        if (!resolvedDaycare) {
+          return res.status(404).json({ message: "Resolved daycare not found" });
+        }
         const existing = await storage.getParentByEmail(email);
-        if (existing && !isAdmin3(u) && existing.daycareId !== resolvedDaycareId) {
+        const existingInEcosystem = resolvedDaycare.ecosystemId ? await storage.getParentByEmailInEcosystem(email, resolvedDaycare.ecosystemId) : void 0;
+        if (existingInEcosystem) {
           return res.status(409).json({
-            message: "Parent already exists at another daycare",
+            message: "Parent already exists in this ecosystem",
+            existingParentId: existingInEcosystem.id,
+            existingDaycareId: existingInEcosystem.daycareId,
+            ecosystemId: existingInEcosystem.ecosystemId
+          });
+        }
+        if (existing && existing.ecosystemId && resolvedDaycare.ecosystemId && existing.ecosystemId !== resolvedDaycare.ecosystemId) {
+          return res.status(409).json({
+            message: "Parent exists in a different ecosystem",
             existingParentId: existing.id,
-            existingDaycareId: existing.daycareId
+            existingEcosystemId: existing.ecosystemId,
+            targetEcosystemId: resolvedDaycare.ecosystemId
           });
         }
         if (existing && existing.daycareId === resolvedDaycareId) {
@@ -978,7 +1562,8 @@ async function registerRoutes(app2) {
         const payload = {
           ...raw,
           email,
-          daycareId: resolvedDaycareId
+          daycareId: resolvedDaycareId,
+          ecosystemId: resolvedDaycare.ecosystemId ?? null
         };
         const parent = await storage.createParent(payload);
         return res.status(201).json(parent);
@@ -1003,6 +1588,31 @@ async function registerRoutes(app2) {
       }
       console.error("Error updating parent:", error);
       res.status(500).json({ message: "Failed to update parent" });
+    }
+  });
+  app2.post("/api/parents/:id/blacklist", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      console.log("[routes] POST /api/parents/:id/blacklist called by", req.user?.id, "body=", req.body);
+      const { isBlacklisted } = req.body ?? {};
+      if (typeof isBlacklisted !== "boolean") return res.status(400).json({ message: "isBlacklisted boolean required" });
+      const row = await storage.updateParent(id, { isBlacklisted });
+      try {
+        await storage.addAudit({
+          action: "blacklist_toggle",
+          actorId: req.user?.id ?? null,
+          targetType: "parent",
+          targetId: String(id),
+          daycareId: req.daycareId ?? null,
+          payload: { isBlacklisted }
+        });
+      } catch (auditErr) {
+        console.warn("Failed to write audit log for blacklist:", auditErr);
+      }
+      res.json(row);
+    } catch (e) {
+      console.error("Error toggling blacklist:", e);
+      res.status(500).json({ message: "Failed to update parent blacklist" });
     }
   });
   app2.get("/api/children", isAuthenticated2, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
@@ -1036,9 +1646,21 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/parents/lookup", isAuthenticated2, async (req, res) => {
     try {
-      const { email } = req.body;
+      const { email, ecosystemId } = req.body;
       if (!email) return res.status(400).json({ message: "Email is required for lookup" });
-      const parent = await storage.getParentByEmail(String(email).trim().toLowerCase());
+      let parent;
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (ecosystemId) {
+        parent = await storage.getParentByEmailInEcosystem(normalizedEmail, Number(ecosystemId));
+      } else if (req.daycareId) {
+        const daycare = await storage.getDaycare(req.daycareId);
+        if (daycare?.ecosystemId) {
+          parent = await storage.getParentByEmailInEcosystem(normalizedEmail, daycare.ecosystemId);
+        }
+      }
+      if (!parent) {
+        parent = await storage.getParentByEmail(normalizedEmail);
+      }
       if (!parent) return res.status(404).json({ message: "Parent not found in ecosystem" });
       const payments2 = await storage.getPayments(parent.id);
       res.json({
@@ -1049,6 +1671,93 @@ async function registerRoutes(app2) {
     } catch (e) {
       console.error("Error in parent lookup:", e);
       res.status(500).json({ message: "Failed to perform parent lookup" });
+    }
+  });
+  app2.get("/api/parents/:id/ecosystem-profile", isAuthenticated2, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
+    try {
+      const parentId = Number(req.params.id);
+      const parent = await storage.getParent(parentId);
+      if (!parent) return res.status(404).json({ message: "Parent not found" });
+      if (!parent.ecosystemId) {
+        return res.status(400).json({ message: "Parent is not assigned to an ecosystem" });
+      }
+      const profile = await storage.getParentEcosystemProfile(parentId, parent.ecosystemId);
+      res.json(profile);
+    } catch (e) {
+      console.error("Error fetching parent ecosystem profile:", e);
+      res.status(500).json({ message: "Failed to fetch parent ecosystem profile" });
+    }
+  });
+  app2.get("/api/ecosystems/:id/alerts", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const unresolved = req.query.unresolved === "true" ? true : void 0;
+      const alertType = req.query.alertType ? String(req.query.alertType) : void 0;
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
+      const alerts = await storage.getEcosystemAlerts(ecosystemId, {
+        unresolved,
+        alertType,
+        limit
+      });
+      res.json(alerts);
+    } catch (e) {
+      console.error("Error fetching ecosystem alerts:", e);
+      res.status(500).json({ message: "Failed to fetch ecosystem alerts" });
+    }
+  });
+  app2.get("/api/ecosystems/:id/suspicious-activity", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const alerts = await storage.getEcosystemAlerts(ecosystemId, {
+        unresolved: true,
+        limit: 1e3
+      });
+      const suspicious = {
+        totalUnresolvedAlerts: alerts.length,
+        simultaneousEnrollments: alerts.filter((a) => a.alertType === "simultaneous_enrollment").length,
+        suspiciousTransfers: alerts.filter((a) => a.alertType === "suspicious_transfer").length,
+        enrollmentAttempts: alerts.filter((a) => a.alertType === "enrollment_attempt").length,
+        highSeverityCount: alerts.filter((a) => a.severity === "high").length,
+        mediumSeverityCount: alerts.filter((a) => a.severity === "medium").length,
+        recentAlerts: alerts.slice(0, 20)
+      };
+      res.json(suspicious);
+    } catch (e) {
+      console.error("Error fetching suspicious activity summary:", e);
+      res.status(500).json({ message: "Failed to fetch suspicious activity summary" });
+    }
+  });
+  app2.put("/api/ecosystems/:id/enforcement", isAuthenticated2, adminOnly, async (req, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const { enforceAlerts } = req.body;
+      if (typeof enforceAlerts !== "boolean") {
+        return res.status(400).json({ message: "enforceAlerts must be a boolean" });
+      }
+      const ecosystem = await storage.getEcosystem(ecosystemId);
+      if (!ecosystem) return res.status(404).json({ message: "Ecosystem not found" });
+      const updated = await storage.updateEcosystem(ecosystemId, { enforceAlerts });
+      try {
+        await storage.addAudit({
+          action: "enforcement_toggle",
+          actorId: req.user?.id ?? null,
+          targetType: "ecosystem",
+          targetId: String(ecosystemId),
+          payload: { enforceAlerts, previousEnforceAlerts: ecosystem.enforceAlerts }
+        });
+      } catch (auditErr) {
+        console.warn("Failed to write audit log for enforcement toggle:", auditErr);
+      }
+      res.json({
+        id: updated.id,
+        name: updated.name,
+        enforceAlerts: updated.enforceAlerts,
+        mode: updated.enforceAlerts ? "ENFORCE (blocking)" : "MONITOR (alerts only)",
+        message: `Ecosystem switched to ${updated.enforceAlerts ? "ENFORCE" : "MONITOR"} mode`
+      });
+    } catch (e) {
+      console.error("Error toggling enforcement mode:", e);
+      res.status(500).json({ message: "Failed to toggle enforcement mode" });
     }
   });
   app2.get("/api/enrollments", isAuthenticated2, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
@@ -1081,6 +1790,48 @@ async function registerRoutes(app2) {
           totalOwed: parent.totalOwed
         });
       }
+      const daycare = await storage.getDaycare(parsed.daycareId);
+      if (daycare?.ecosystemId) {
+        const ecosystem = await storage.getEcosystem(daycare.ecosystemId);
+        const allAlerts = [];
+        const simultaneousCheck = await storage.checkSimultaneousEnrollments(parsed.childId);
+        if (simultaneousCheck.hasMultipleEnrollments && simultaneousCheck.enrollments.length > 0) {
+          const otherDaycare = simultaneousCheck.enrollments.find((e) => e.daycareId !== parsed.daycareId);
+          if (otherDaycare) {
+            allAlerts.push({
+              parentId: parent.id,
+              daycareId: parsed.daycareId,
+              alertType: "simultaneous_enrollment",
+              message: `Alert: ${child.firstName} ${child.lastName} is simultaneously enrolled at ${otherDaycare.daycareName} in the same ecosystem`,
+              severity: "high"
+            });
+          }
+        }
+        const transferCheck = await storage.checkRecentTransfersAfterDuePayments(parent.id, daycare.ecosystemId, 30);
+        if (transferCheck.hasSuspiciousTransfer && transferCheck.detail.length > 0) {
+          const transfer = transferCheck.detail[0];
+          if (transfer.outstandingPayments > 0) {
+            allAlerts.push({
+              parentId: parent.id,
+              daycareId: parsed.daycareId,
+              alertType: "suspicious_transfer",
+              message: `Alert: Parent has ${transfer.outstandingPayments} outstanding payment(s) and recently moved ${transfer.childName} from ${transfer.fromDaycare} to another center`,
+              severity: "high"
+            });
+          }
+        }
+        for (const alert of allAlerts) {
+          await storage.createAlert(alert);
+        }
+        if (ecosystem?.enforceAlerts && allAlerts.length > 0) {
+          return res.status(403).json({
+            message: "Enrollment blocked: Suspicious activity detected. Ecosystem is in Enforce mode.",
+            alerts: allAlerts,
+            enforceMode: true,
+            recommendation: "Contact ecosystem admin to resolve or switch to Monitor mode"
+          });
+        }
+      }
       const row = await storage.createEnrollment(parsed);
       res.status(201).json(row);
     } catch (error) {
@@ -1102,9 +1853,30 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch payments" });
     }
   });
-  app2.post("/api/payments", isAuthenticated2, requireMembership(), async (req, res) => {
+  app2.post("/api/payments", isAuthenticated2, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
     try {
-      const parsed = insertPaymentSchema.parse(req.body);
+      console.log("[routes] POST /api/payments called by", req.user?.id, "body=", req.body);
+      const incoming = { ...req.body || {} };
+      if (incoming.paidDate) {
+        if (typeof incoming.paidDate === "string") {
+          const parsed2 = Date.parse(incoming.paidDate);
+          incoming.paidDate = Number.isNaN(parsed2) ? void 0 : new Date(parsed2);
+        }
+        if (typeof incoming.paidDate === "number") incoming.paidDate = new Date(Number(incoming.paidDate));
+      }
+      if (incoming.dueDate) {
+        if (typeof incoming.dueDate === "string") {
+          const parsed2 = Date.parse(incoming.dueDate);
+          incoming.dueDate = Number.isNaN(parsed2) ? void 0 : new Date(parsed2);
+        }
+        if (typeof incoming.dueDate === "number") incoming.dueDate = new Date(Number(incoming.dueDate));
+      }
+      if (incoming.amount && typeof incoming.amount === "string") {
+        const n = Number(incoming.amount);
+        incoming.amount = Number.isFinite(n) ? n : incoming.amount;
+      }
+      console.log("[routes] Normalized POST /api/payments payload:", incoming);
+      const parsed = insertPaymentSchema.parse(incoming);
       if (parsed.enrollmentId) {
         const enroll = await storage.getEnrollment(parsed.enrollmentId);
         if (!enroll || enroll.daycareId !== req.daycareId) {
@@ -1112,6 +1884,18 @@ async function registerRoutes(app2) {
         }
       }
       const row = await storage.createPayment(parsed);
+      try {
+        await storage.addAudit({
+          action: "create_invoice",
+          actorId: req.user?.id ?? null,
+          targetType: "payment",
+          targetId: String(row.id),
+          daycareId: req.daycareId ?? null,
+          payload: { parentId: parsed.parentId, enrollmentId: parsed.enrollmentId, amount: parsed.amount, dueDate: parsed.dueDate }
+        });
+      } catch (auditErr) {
+        console.warn("Failed to write audit log for invoice:", auditErr);
+      }
       res.status(201).json(row);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -1121,10 +1905,168 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to create payment record" });
     }
   });
-  app2.put("/api/payments/:id", isAuthenticated2, requireMembership(), async (req, res) => {
+  app2.post("/api/payments/:id/payfast-link", isAuthenticated2, ensureDaycareFromPayment, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const data = insertPaymentSchema.partial().parse(req.body);
+      const payment = await storage.getPayment(id);
+      if (!payment) return res.status(404).json({ message: "Payment not found" });
+      if (!payment.enrollment?.daycare?.ecosystemId) {
+        return res.status(400).json({ message: "Payment daycare ecosystem not configured" });
+      }
+      const ecosystem = await storage.getEcosystem(payment.enrollment.daycare.ecosystemId);
+      if (!ecosystem) {
+        return res.status(404).json({ message: "Ecosystem not found" });
+      }
+      if (!ecosystem.payfastMerchantId || !ecosystem.payfastMerchantKey || !ecosystem.payfastPassphrase) {
+        return res.status(400).json({ message: "PayFast not configured for this ecosystem" });
+      }
+      const params = {
+        merchant_id: ecosystem.payfastMerchantId,
+        merchant_key: ecosystem.payfastMerchantKey,
+        return_url: process.env.PAYFAST_RETURN_URL || "https://example.com/return",
+        cancel_url: process.env.PAYFAST_CANCEL_URL || "https://example.com/cancel",
+        notify_url: process.env.PAYFAST_NOTIFY_URL || "https://example.com/api/payfast/ipn",
+        m_payment_id: String(payment.id),
+        amount: Number(payment.amount).toFixed(2),
+        item_name: `Daycare invoice #${payment.id}`,
+        email_address: payment.parent?.email ?? ""
+      };
+      const queryString = Object.keys(params).sort().map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`).join("&");
+      const signature = createHash("md5").update(`${queryString}&passphrase=${ecosystem.payfastPassphrase}`).digest("hex");
+      const checkoutUrl = `https://sandbox.payfast.co.za/eng/process?${queryString}&signature=${signature}`;
+      const updatedPayment = await storage.updatePayment(payment.id, {
+        gatewayProvider: "payfast",
+        gatewayStatus: "pending",
+        checkoutUrl
+      });
+      res.json({ checkoutUrl, payment: updatedPayment });
+    } catch (error) {
+      console.error("Error creating PayFast checkout link:", error);
+      res.status(500).json({ message: "Failed to create PayFast checkout link" });
+    }
+  });
+  app2.post("/api/payfast/ipn", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const signature = String(body.signature || "").trim();
+      const paymentId = Number(body.m_payment_id);
+      if (!signature || !paymentId) {
+        return res.status(400).send("Invalid PayFast IPN payload");
+      }
+      const params = { ...body };
+      delete params.signature;
+      const queryString = Object.keys(params).sort().map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(String(params[key] ?? ""))}`).join("&");
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        console.warn("PayFast IPN: payment not found", paymentId);
+        return res.status(404).send("Payment not found");
+      }
+      const ecosystemId = payment.enrollment?.daycare?.ecosystemId;
+      if (!ecosystemId) {
+        console.warn("PayFast IPN: payment has no ecosystem", paymentId);
+        return res.status(400).send("Ecosystem not configured");
+      }
+      const ecosystem = await storage.getEcosystem(ecosystemId);
+      if (!ecosystem) {
+        return res.status(404).send("Ecosystem not found");
+      }
+      const expectedSignature = createHash("md5").update(`${queryString}&passphrase=${ecosystem.payfastPassphrase ?? ""}`).digest("hex");
+      if (expectedSignature !== signature) {
+        console.warn("PayFast IPN invalid signature", { paymentId, expectedSignature, signature });
+        return res.status(400).send("Invalid signature");
+      }
+      const paymentStatus = String(body.payment_status || "").toLowerCase();
+      const gatewayStatus = paymentStatus === "complete" ? "complete" : paymentStatus === "failed" ? "failed" : "pending";
+      const updatedFields = {
+        gatewayStatus,
+        gatewayReference: body.pf_payment_id ? String(body.pf_payment_id) : null
+      };
+      if (gatewayStatus === "complete") {
+        updatedFields.status = "paid";
+        updatedFields.paidDate = (/* @__PURE__ */ new Date()).toISOString();
+      }
+      const updatedPayment = await storage.updatePayment(paymentId, updatedFields);
+      try {
+        await storage.addAudit({
+          action: "payfast_ipn",
+          actorId: null,
+          targetType: "payment",
+          targetId: String(paymentId),
+          daycareId: payment.enrollment?.daycare?.id ?? null,
+          payload: {
+            payment_status: body.payment_status,
+            pf_payment_id: body.pf_payment_id,
+            gatewayStatus
+          }
+        });
+      } catch (auditErr) {
+        console.warn("PayFast IPN audit error", auditErr);
+      }
+      res.send("OK");
+    } catch (error) {
+      console.error("PayFast IPN error:", error);
+      res.status(500).send("PayFast IPN processing failed");
+    }
+  });
+  async function ensureDaycareFromPayment(req, res, next) {
+    try {
+      const rawDaycare = req.params && req.params.daycareId || req.query && req.query.daycareId || req.body && req.body.daycareId || req.daycareId;
+      if (rawDaycare && !Number.isNaN(Number(rawDaycare))) {
+        req.daycareId = Number(rawDaycare);
+        return next();
+      }
+      const id = Number(req.params.id);
+      if (!id || Number.isNaN(id)) return next();
+      const details = await storage.getPayment(id);
+      if (details && details.enrollment && details.enrollment.daycare && details.enrollment.daycare.id) {
+        req.daycareId = Number(details.enrollment.daycare.id);
+        req.body = req.body || {};
+        req.body.daycareId = Number(details.enrollment.daycare.id);
+      }
+    } catch (e) {
+      console.warn("Could not infer daycareId from payment:", e);
+    }
+    return next();
+  }
+  function logMembershipCheck(req, _res, next) {
+    try {
+      console.log("[routes] membership-check: user=", { id: req.user?.id, role: req.user?.role, activeDaycareId: req.user?.activeDaycareId });
+      console.log("[routes] membership-check: resolved daycareId (params/query/body/derived)=", {
+        params: req.params?.daycareId,
+        query: req.query?.daycareId,
+        body: req.body?.daycareId,
+        derived: req.daycareId
+      });
+    } catch (e) {
+      console.warn("Error logging membership check info", e);
+    }
+    next();
+  }
+  app2.put("/api/payments/:id", isAuthenticated2, ensureDaycareFromPayment, logMembershipCheck, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      console.log("[routes] PUT /api/payments/:id called by", req.user?.id, "id=", id, "body=", req.body);
+      const incoming = { ...req.body || {} };
+      if (incoming.paidDate) {
+        if (typeof incoming.paidDate === "string") {
+          const parsed = Date.parse(incoming.paidDate);
+          incoming.paidDate = Number.isNaN(parsed) ? void 0 : new Date(parsed);
+        }
+        if (typeof incoming.paidDate === "number") incoming.paidDate = new Date(Number(incoming.paidDate));
+      }
+      if (incoming.dueDate) {
+        if (typeof incoming.dueDate === "string") {
+          const parsed = Date.parse(incoming.dueDate);
+          incoming.dueDate = Number.isNaN(parsed) ? void 0 : new Date(parsed);
+        }
+        if (typeof incoming.dueDate === "number") incoming.dueDate = new Date(Number(incoming.dueDate));
+      }
+      if (incoming.amount && typeof incoming.amount === "string") {
+        const n = Number(incoming.amount);
+        incoming.amount = Number.isFinite(n) ? n : incoming.amount;
+      }
+      console.log("[routes] Normalized payment payload:", incoming);
+      const data = insertPaymentSchema.partial().parse(incoming);
       const payment = await storage.updatePayment(id, data);
       if (data.status === "paid") {
         const details = await storage.getPayment(id);
@@ -1135,13 +2077,14 @@ async function registerRoutes(app2) {
           let newTier = "good_payer";
           if (overdue > total * 0.5) newTier = "non_payer";
           else if (overdue > total * 0.2) newTier = "mid_payer";
-          const totalOwed = all.filter((p) => p.status !== "paid").reduce((sum, p) => sum + parseFloat(p.amount), 0).toFixed(2);
+          const totalOwed = all.filter((p) => p.status !== "paid").reduce((sum, p) => sum + Number(p.amount), 0);
           await storage.updateParentTier(details.parent.id, newTier, totalOwed);
         }
       }
       res.json(payment);
     } catch (error) {
       if (error instanceof z2.ZodError) {
+        console.error("Validation error updating payment:", error.errors);
         return res.status(400).json({ message: "Invalid payment data", errors: error.errors });
       }
       console.error("Error updating payment:", error);
@@ -1158,10 +2101,23 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch alerts" });
     }
   });
-  app2.post("/api/alerts", isAuthenticated2, requireMembership(), async (req, res) => {
+  app2.post("/api/alerts", isAuthenticated2, requireMembership("daycareId", { adminBypass: true }), async (req, res) => {
     try {
+      console.log("[routes] POST /api/alerts called by", req.user?.id, "body=", req.body);
       const parsed = insertPaymentAlertSchema.parse({ ...req.body, daycareId: req.daycareId });
       const row = await storage.createAlert(parsed);
+      try {
+        await storage.addAudit({
+          action: "create_alert",
+          actorId: req.user?.id ?? null,
+          targetType: "alert",
+          targetId: String(row.id),
+          daycareId: req.daycareId ?? null,
+          payload: { parentId: parsed.parentId, alertType: parsed.alertType, message: parsed.message, severity: parsed.severity }
+        });
+      } catch (auditErr) {
+        console.warn("Failed to write audit log for alert:", auditErr);
+      }
       res.status(201).json(row);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -1296,6 +2252,13 @@ function serveStatic(app2) {
 
 // server/index.ts
 init_localAuth();
+var MemoryStore = null;
+try {
+  const mem = __require("memorystore");
+  MemoryStore = mem(session);
+} catch (e) {
+  console.warn("memorystore not available, falling back to default express-session MemoryStore");
+}
 var app = express2();
 var isProd2 = process.env.NODE_ENV === "production";
 var FRONTEND_ORIGINS = isProd2 ? ["https://educonnect-8y46.onrender.com"] : ["http://localhost:5173", "http://localhost:5174"];
@@ -1316,13 +2279,16 @@ app.use(
     secret: process.env.SESSION_SECRET || "daycare-secret-key",
     resave: false,
     saveUninitialized: false,
+    store: MemoryStore ? new MemoryStore({ checkPeriod: 864e5 }) : void 0,
     cookie: {
       httpOnly: true,
       secure: isProd2,
       // only over https in prod
+      // When deploying with a separate frontend origin (e.g. Render), set sameSite to 'none'
       sameSite: isProd2 ? "none" : "lax",
-      // required for cross-site cookies
-      maxAge: 24 * 60 * 60 * 1e3
+      maxAge: 24 * 60 * 60 * 1e3,
+      // allow overriding cookie domain via env when using custom domains
+      domain: process.env.SESSION_COOKIE_DOMAIN || void 0
     }
   })
 );

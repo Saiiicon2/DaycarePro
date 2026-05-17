@@ -21,9 +21,26 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+// Ecosystems
+export const ecosystems = sqliteTable("ecosystems", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  accountId: text("account_id").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: integer("is_active", { mode: "boolean" }).default(true),
+  enforceAlerts: integer("enforce_alerts", { mode: "boolean" }).default(false), // false = monitor only, true = enforce & block
+  payfastMerchantId: text("payfast_merchant_id"),
+  payfastMerchantKey: text("payfast_merchant_key"),
+  payfastPassphrase: text("payfast_passphrase"),
+  payfastMode: text("payfast_mode").default("sandbox"),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
+});
+
 // Daycare centers
 export const daycares = sqliteTable("daycares", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  ecosystemId: integer("ecosystem_id"),
   name: text("name").notNull(),
   address: text("address").notNull(),
   phone: text("phone"),
@@ -38,6 +55,7 @@ export const daycares = sqliteTable("daycares", {
 // Parents
 export const parents = sqliteTable("parents", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  ecosystemId: integer("ecosystem_id"),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").unique().notNull(),
@@ -48,6 +66,7 @@ export const parents = sqliteTable("parents", {
    isBlacklisted: integer("is_blacklisted", { mode: "boolean" }).default(false),
   paymentTier: text("payment_tier").default("good"),
   totalOwed: real("total_owed").default(0),
+  daycareId: integer("daycare_id"),
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
 });
@@ -92,6 +111,10 @@ export const payments = sqliteTable("payments", {
   paidDate: text("paid_date"),
   status: text("status").default("pending"), // pending, paid, overdue
   paymentMethod: text("payment_method"),
+  gatewayProvider: text("gateway_provider").default("local"),
+  gatewayStatus: text("gateway_status").default("pending"),
+  gatewayReference: text("gateway_reference"),
+  checkoutUrl: text("checkout_url"),
   notes: text("notes"),
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow(),
@@ -152,6 +175,8 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+export type Ecosystem = typeof ecosystems.$inferSelect;
+export type InsertEcosystem = typeof ecosystems.$inferInsert;
 export type Parent = typeof parents.$inferSelect;
 export type InsertParent = typeof parents.$inferInsert;
 export type Child = typeof children.$inferSelect;
@@ -186,6 +211,7 @@ export const insertChildSchema = z.object({
 
 
 
+export const insertEcosystemSchema = createInsertSchema(ecosystems);
 export const insertDaycareSchema = createInsertSchema(daycares);
 export const insertEnrollmentSchema = createInsertSchema(enrollments);
 export const insertPaymentSchema = createInsertSchema(payments);

@@ -1,6 +1,7 @@
 import {
     users,
   daycares,
+  ecosystems,
   parents,
   children,
   enrollments,
@@ -10,6 +11,8 @@ import {
   auditLogs,
   type User,
   type UpsertUser,
+  type Ecosystem,
+  type InsertEcosystem,
   type Daycare,
   type InsertDaycare,
   type Parent,
@@ -48,13 +51,20 @@ export interface IStorage {
   // Daycares
   getDaycares(): Promise<Daycare[]>;
   getDaycare(id: number): Promise<Daycare | undefined>;
+  getEcosystems(): Promise<Ecosystem[]>;
+  getEcosystem(id: number): Promise<Ecosystem | undefined>;
+  getEcosystemByAccountId(accountId: string): Promise<Ecosystem | undefined>;
+  createEcosystem(ecosystem: InsertEcosystem): Promise<Ecosystem>;
+  updateEcosystem(id: number, ecosystem: Partial<InsertEcosystem>): Promise<Ecosystem>;
+  getDaycaresByEcosystem(ecosystemId: number): Promise<Daycare[]>;
   createDaycare(daycare: InsertDaycare): Promise<Daycare>;
   updateDaycare(id: number, daycare: Partial<InsertDaycare>): Promise<Daycare>;
 
   // Parents
-  getParents(search?: string, daycareId?: number): Promise<Parent[]>; //  match impl
+  getParents(search?: string, daycareId?: number, ecosystemId?: number): Promise<Parent[]>; //  match impl
   getParent(id: number): Promise<Parent | undefined>;
   getParentByEmail(email: string): Promise<Parent | undefined>;
+  getParentByEmailInEcosystem(email: string, ecosystemId: number): Promise<Parent | undefined>;
   getParentWithChildren(id: number): Promise<ParentWithChildren | undefined>;
   createParent(parent: InsertParent): Promise<Parent>;
   updateParent(id: number, parent: Partial<InsertParent>): Promise<Parent>;
@@ -93,6 +103,47 @@ export interface IStorage {
   removeMembership(userId: string, daycareId: number): Promise<void>;
   updateMembership(userId: string, daycareId: number, updates: { role?: string; isActive?: boolean }): Promise<any>;
   userCanAccessDaycare(userId: string, daycareId: number): Promise<boolean>;
+
+  // Ecosystem safety checks
+  checkSimultaneousEnrollments(childId: number): Promise<{
+    hasMultipleEnrollments: boolean;
+    enrollments: Array<{ daycareId: number; daycareName: string; startDate: Date; endDate: Date | null; status: string }>;
+  }>;
+  
+  checkRecentTransfersAfterDuePayments(parentId: number, ecosystemId: number, days: number): Promise<{
+    hasSuspiciousTransfer: boolean;
+    detail: Array<{
+      childId: number;
+      childName: string;
+      fromDaycare: string;
+      toDaycare: string;
+      transferDate: Date;
+      outstandingPayments: number;
+      lastDueDate: Date | null;
+    }>;
+  }>;
+
+  getParentEcosystemProfile(parentId: number, ecosystemId: number): Promise<{
+    parent: Parent;
+    allDaycares: Array<{ daycareId: number; daycareName: string }>;
+    enrollmentHistory: Array<{ daycareName: string; startDate: Date; endDate: Date | null; status: string }>;
+    totalOwedAcrossEcosystem: number;
+    paymentIssuesCount: number;
+    isBlacklistedAcrossEcosystem: boolean;
+  }>;
+
+  getEcosystemAlerts(ecosystemId: number, options?: { unresolved?: boolean; alertType?: string; limit?: number }): Promise<Array<{
+    id: number;
+    parentId: number;
+    parentName: string;
+    daycareId: number;
+    daycareName: string;
+    alertType: string;
+    message: string;
+    severity: string;
+    isResolved: boolean;
+    createdAt: Date;
+  }>>;
 
   // Analytics
   getDashboardStats(): Promise<{
@@ -202,6 +253,7 @@ async createUser(user: UpsertUser): Promise<User> {
     profileImageUrl: users.profileImageUrl,
     role: users.role,
     daycareId: users.daycareId,
+    activeDaycareId: users.activeDaycareId,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
   })
@@ -235,6 +287,38 @@ async createUser(user: UpsertUser): Promise<User> {
     return daycare;
   }
 
+  async getEcosystems(): Promise<Ecosystem[]> {
+    return await db.select().from(ecosystems).where(eq(ecosystems.isActive, true)).orderBy(ecosystems.name);
+  }
+
+  async getEcosystem(id: number): Promise<Ecosystem | undefined> {
+    const [ecosystem] = await db.select().from(ecosystems).where(eq(ecosystems.id, id));
+    return ecosystem;
+  }
+
+  async getEcosystemByAccountId(accountId: string): Promise<Ecosystem | undefined> {
+    const [ecosystem] = await db.select().from(ecosystems).where(eq(ecosystems.accountId, accountId));
+    return ecosystem;
+  }
+
+  async createEcosystem(ecosystem: InsertEcosystem): Promise<Ecosystem> {
+    const [newEcosystem] = await db.insert(ecosystems).values(ecosystem).returning();
+    return newEcosystem;
+  }
+
+  async updateEcosystem(id: number, ecosystem: Partial<InsertEcosystem>): Promise<Ecosystem> {
+    const [updatedEcosystem] = await db
+      .update(ecosystems)
+      .set({ ...ecosystem, updatedAt: new Date() })
+      .where(eq(ecosystems.id, id))
+      .returning();
+    return updatedEcosystem;
+  }
+
+  async getDaycaresByEcosystem(ecosystemId: number): Promise<Daycare[]> {
+    return await db.select().from(daycares).where(and(eq(daycares.ecosystemId, ecosystemId), eq(daycares.isActive, true))).orderBy(daycares.name);
+  }
+
   async createDaycare(daycare: InsertDaycare): Promise<Daycare> {
     const [newDaycare] = await db.insert(daycares).values(daycare).returning();
     return newDaycare;
@@ -250,7 +334,7 @@ async createUser(user: UpsertUser): Promise<User> {
   }
 
   // Parents
-async getParents(search?: string, daycareId?: number): Promise<Parent[]> {
+async getParents(search?: string, daycareId?: number, ecosystemId?: number): Promise<Parent[]> {
   const conds: any[] = [];
 
   if (search && search.trim()) {
@@ -266,6 +350,7 @@ async getParents(search?: string, daycareId?: number): Promise<Parent[]> {
   }
 
   if (daycareId) conds.push(eq(parents.daycareId, daycareId));
+  if (ecosystemId) conds.push(eq(parents.ecosystemId, ecosystemId));
 
   if (conds.length) {
     return await db
@@ -290,6 +375,15 @@ async getParents(search?: string, daycareId?: number): Promise<Parent[]> {
   async getParentByEmail(email: string): Promise<Parent | undefined> {
     console.log('email:',email);
     const [parent] = await db.select().from(parents).where(eq(parents.email, email));
+    return parent;
+  }
+
+  async getParentByEmailInEcosystem(email: string, ecosystemId: number): Promise<Parent | undefined> {
+    const [parent] = await db
+      .select()
+      .from(parents)
+      .where(and(eq(parents.email, email), eq(parents.ecosystemId, ecosystemId)))
+      .limit(1);
     return parent;
   }
 
@@ -377,7 +471,7 @@ async getChildren(parentId?: number, daycareId?: number): Promise<Child[]> {
   // Delete payments for a set of enrollment IDs
   async deletePaymentsByEnrollmentIds(enrollmentIds: number[]): Promise<void> {
     if (!enrollmentIds || enrollmentIds.length === 0) return;
-    await db.delete(payments).where(sql`enrollment_id IN (${sql.join(enrollmentIds.map(() => sql`?`), sql`,`)})`, ...enrollmentIds as any);
+    await db.delete(payments).where(sql`enrollment_id IN (${sql.join(enrollmentIds.map((id) => sql`${id}`), sql`,`)})`);
   }
 
   // Delete enrollments for a child
@@ -397,7 +491,7 @@ async getChildren(parentId?: number, daycareId?: number): Promise<Child[]> {
     const ids = enrs.map((e: any) => e.id).filter(Boolean) as number[];
     if (ids.length) {
       await this.deletePaymentsByEnrollmentIds(ids);
-      await db.delete(enrollments).where(sql`id IN (${sql.join(ids.map(() => sql`?`), sql`,`)})`, ...ids as any);
+      await db.delete(enrollments).where(sql`id IN (${sql.join(ids.map((id) => sql`${id}`), sql`,`)})`);
     }
     await db.delete(children).where(eq(children.id, childId));
   }
@@ -678,6 +772,279 @@ async getAlerts(resolved?: boolean, daycareId?: number): Promise<AlertWithDetail
       .where(eq(paymentAlerts.id, id))
       .returning();
     return resolvedAlert;
+  }
+
+  // ===== ECOSYSTEM SAFETY CHECKS =====
+
+  /**
+   * Check if a child has simultaneous active enrollments across multiple daycares in the same ecosystem
+   */
+  async checkSimultaneousEnrollments(childId: number): Promise<{
+    hasMultipleEnrollments: boolean;
+    enrollments: Array<{ daycareId: number; daycareName: string; startDate: Date; endDate: Date | null; status: string }>;
+  }> {
+    const rows = await db
+      .select({
+        daycareId: enrollments.daycareId,
+        daycareName: daycares.name,
+        startDate: enrollments.startDate,
+        endDate: enrollments.endDate,
+        status: enrollments.status,
+      })
+      .from(enrollments)
+      .leftJoin(daycares, eq(enrollments.daycareId, daycares.id))
+      .where(and(
+        eq(enrollments.childId, childId),
+        eq(enrollments.status, "active")
+      ));
+
+    return {
+      hasMultipleEnrollments: rows.length > 1,
+      enrollments: rows.map(r => ({
+        daycareId: r.daycareId,
+        daycareName: r.daycareName || "Unknown",
+        startDate: r.startDate,
+        endDate: r.endDate,
+        status: r.status,
+      })),
+    };
+  }
+
+  /**
+   * Check if a parent recently transferred a child after due/overdue payments
+   * Returns suspicious transfers within the last N days
+   */
+  async checkRecentTransfersAfterDuePayments(parentId: number, ecosystemId: number, days: number = 30): Promise<{
+    hasSuspiciousTransfer: boolean;
+    detail: Array<{
+      childId: number;
+      childName: string;
+      fromDaycare: string;
+      toDaycare: string;
+      transferDate: Date;
+      outstandingPayments: number;
+      lastDueDate: Date | null;
+    }>;
+  }> {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Get all children for this parent
+    const childRows = await db
+      .select({ id: children.id, firstName: children.firstName, lastName: children.lastName })
+      .from(children)
+      .where(eq(children.parentId, parentId));
+
+    const transfers: Array<{
+      childId: number;
+      childName: string;
+      fromDaycare: string;
+      toDaycare: string;
+      transferDate: Date;
+      outstandingPayments: number;
+      lastDueDate: Date | null;
+    }> = [];
+
+    for (const child of childRows) {
+      // Get enrollments for this child ordered by start date
+      const enrs = await db
+        .select({
+          enrollmentId: enrollments.id,
+          daycareId: enrollments.daycareId,
+          daycareName: daycares.name,
+          startDate: enrollments.startDate,
+          endDate: enrollments.endDate,
+          status: enrollments.status,
+        })
+        .from(enrollments)
+        .leftJoin(daycares, eq(enrollments.daycareId, daycares.id))
+        .where(eq(enrollments.childId, child.id))
+        .orderBy(enrollments.startDate);
+
+      // Check for transfers: when endDate is set and nextEnrollment starts shortly after
+      for (let i = 0; i < enrs.length - 1; i++) {
+        const current = enrs[i];
+        const next = enrs[i + 1];
+
+        if (current.endDate && next.startDate) {
+          const transferDate = new Date(next.startDate);
+          
+          if (transferDate >= cutoffDate) {
+            // Recent transfer - check for outstanding payments
+            const [duePayments] = await db
+              .select({ count: sql<number>`count(*)` })
+              .from(payments)
+              .where(and(
+                eq(payments.parentId, parentId),
+                eq(payments.status, "overdue")
+              ));
+
+            const [recentDuePayment] = await db
+              .select({ dueDate: payments.dueDate })
+              .from(payments)
+              .where(and(
+                eq(payments.parentId, parentId),
+                sql`${payments.dueDate} < strftime('%s', 'now')`
+              ))
+              .orderBy(desc(payments.dueDate))
+              .limit(1);
+
+            transfers.push({
+              childId: child.id,
+              childName: `${child.firstName} ${child.lastName}`,
+              fromDaycare: current.daycareName || "Unknown",
+              toDaycare: next.daycareName || "Unknown",
+              transferDate,
+              outstandingPayments: duePayments.count || 0,
+              lastDueDate: recentDuePayment?.dueDate ? new Date(Number(recentDuePayment.dueDate)) : null,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      hasSuspiciousTransfer: transfers.length > 0,
+      detail: transfers,
+    };
+  }
+
+  /**
+   * Get parent's complete profile across entire ecosystem
+   */
+  async getParentEcosystemProfile(parentId: number, ecosystemId: number): Promise<{
+    parent: Parent;
+    allDaycares: Array<{ daycareId: number; daycareName: string }>;
+    enrollmentHistory: Array<{ daycareName: string; startDate: Date; endDate: Date | null; status: string }>;
+    totalOwedAcrossEcosystem: number;
+    paymentIssuesCount: number;
+    isBlacklistedAcrossEcosystem: boolean;
+  }> {
+    const parent = await this.getParent(parentId);
+    if (!parent) throw new Error("Parent not found");
+
+    // Get all daycares in this ecosystem
+    const daycareList = await db
+      .select({ id: daycares.id, name: daycares.name })
+      .from(daycares)
+      .where(eq(daycares.ecosystemId, ecosystemId));
+
+    // Get all children of this parent
+    const childList = await db
+      .select({ id: children.id })
+      .from(children)
+      .where(eq(children.parentId, parentId));
+
+    // Get all enrollments across all daycares in ecosystem
+    const enrollmentHistory: Array<{ daycareName: string; startDate: Date; endDate: Date | null; status: string }> = [];
+    for (const child of childList) {
+      const enrs = await db
+        .select({
+          daycareName: daycares.name,
+          startDate: enrollments.startDate,
+          endDate: enrollments.endDate,
+          status: enrollments.status,
+        })
+        .from(enrollments)
+        .leftJoin(daycares, eq(enrollments.daycareId, daycares.id))
+        .where(and(
+          eq(enrollments.childId, child.id),
+          sql`${daycares.ecosystemId} = ${ecosystemId}`
+        ));
+
+      enrollmentHistory.push(...enrs.map(e => ({
+        daycareName: e.daycareName || "Unknown",
+        startDate: e.startDate,
+        endDate: e.endDate,
+        status: e.status,
+      })));
+    }
+
+    // Count payment issues
+    const [issueCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(payments)
+      .where(and(
+        eq(payments.parentId, parentId),
+        sql`${payments.status} IN ('overdue', 'missed')`
+      ));
+
+    return {
+      parent,
+      allDaycares: daycareList.map(d => ({ daycareId: d.id, daycareName: d.name })),
+      enrollmentHistory: enrollmentHistory.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
+      totalOwedAcrossEcosystem: parent.totalOwed || 0,
+      paymentIssuesCount: issueCount.count || 0,
+      isBlacklistedAcrossEcosystem: parent.isBlacklisted || false,
+    };
+  }
+
+  /**
+   * Get ecosystem-wide alerts with filtering
+   */
+  async getEcosystemAlerts(ecosystemId: number, options?: { unresolved?: boolean; alertType?: string; limit?: number }): Promise<Array<{
+    id: number;
+    parentId: number;
+    parentName: string;
+    daycareId: number;
+    daycareName: string;
+    alertType: string;
+    message: string;
+    severity: string;
+    isResolved: boolean;
+    createdAt: Date;
+  }>> {
+    const conds: any[] = [];
+
+    // Get all daycares in this ecosystem first
+    const daycareIds = await db
+      .select({ id: daycares.id })
+      .from(daycares)
+      .where(eq(daycares.ecosystemId, ecosystemId));
+
+    if (daycareIds.length === 0) return [];
+
+    conds.push(sql`${paymentAlerts.daycareId} IN (${sql.join(daycareIds.map(d => d.id), sql`,`)})`);
+
+    if (options?.unresolved === true) {
+      conds.push(eq(paymentAlerts.isResolved, false));
+    }
+    if (options?.alertType) {
+      conds.push(eq(paymentAlerts.alertType, options.alertType));
+    }
+
+    const rows = await db
+      .select({
+        id: paymentAlerts.id,
+        parentId: paymentAlerts.parentId,
+        parentFirstName: parents.firstName,
+        parentLastName: parents.lastName,
+        daycareId: paymentAlerts.daycareId,
+        daycareName: daycares.name,
+        alertType: paymentAlerts.alertType,
+        message: paymentAlerts.message,
+        severity: paymentAlerts.severity,
+        isResolved: paymentAlerts.isResolved,
+        createdAt: paymentAlerts.createdAt,
+      })
+      .from(paymentAlerts)
+      .leftJoin(parents, eq(paymentAlerts.parentId, parents.id))
+      .leftJoin(daycares, eq(paymentAlerts.daycareId, daycares.id))
+      .where(conds.length > 0 ? and(...conds) : undefined)
+      .orderBy(desc(paymentAlerts.createdAt))
+      .limit(options?.limit ?? 100);
+
+    return rows.map(r => ({
+      id: r.id,
+      parentId: r.parentId,
+      parentName: `${r.parentFirstName} ${r.parentLastName}`,
+      daycareId: r.daycareId,
+      daycareName: r.daycareName || "Unknown",
+      alertType: r.alertType,
+      message: r.message,
+      severity: r.severity,
+      isResolved: r.isResolved,
+      createdAt: r.createdAt,
+    }));
   }
 
   // Analytics

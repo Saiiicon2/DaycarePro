@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { createHash } from "crypto";
 import { storage } from "./storage";
 import { requireMembership } from "./middleware/requireMembership";
 import {
@@ -41,13 +42,60 @@ app.post('/api/auth/active-daycare', isAuthenticated, async (req: any, res) => {
   res.status(204).end();
 });
 
+app.get("/api/ecosystems", isAuthenticated, adminOnly, async (_req, res) => {
+  try {
+    const rows = await storage.getEcosystems();
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching ecosystems:", error);
+    res.status(500).json({ message: "Failed to fetch ecosystems" });
+  }
+});
+
+app.post("/api/ecosystems", isAuthenticated, adminOnly, async (req: any, res) => {
+  try {
+    const data = z.object({
+      accountId: z.string().min(1),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      payfastMerchantId: z.string().optional(),
+      payfastMerchantKey: z.string().optional(),
+      payfastPassphrase: z.string().optional(),
+      payfastMode: z.enum(["sandbox", "live"]).default("sandbox"),
+    }).parse(req.body);
+
+    const row = await storage.createEcosystem(data as any);
+    res.status(201).json(row);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid ecosystem data", errors: error.errors });
+    }
+    console.error("Error creating ecosystem:", error);
+    res.status(500).json({ message: "Failed to create ecosystem" });
+  }
+});
+
+app.get("/api/ecosystems/:id/daycares", isAuthenticated, adminOnly, async (req: any, res) => {
+  try {
+    const ecosystemId = Number(req.params.id);
+    const rows = await storage.getDaycaresByEcosystem(ecosystemId);
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching daycares for ecosystem:", error);
+    res.status(500).json({ message: "Failed to fetch ecosystem daycares" });
+  }
+});
+
 // Daycare routes
 // Require authentication so we can determine whether the caller is admin or a member
 app.get("/api/daycares", isAuthenticated, async (req: any, res) => {
     try {
       const u = req.user; // set by your isAuthenticated middleware
+      const ecosystemId = req.query.ecosystemId ? Number(req.query.ecosystemId) : undefined;
       const list = isAdmin(u)
-        ? await storage.getDaycares()
+        ? ecosystemId
+          ? await storage.getDaycaresByEcosystem(ecosystemId)
+          : await storage.getDaycares()
         : await storage.getUserDaycares(u.id);
       res.json(list);
     } catch (err) {
@@ -265,12 +313,13 @@ app.use(async (req: any, _res, next) => {
         // Admins may optionally assign an owner by email.
         const BodySchema = insertDaycareSchema.extend({
           ownerEmail: z.string().email().optional(),
+          ecosystemId: z.number().int().positive().optional(),
         });
 
         const { ownerEmail, ...daycarePayload } = BodySchema.parse(req.body);
 
         // Create the daycare
-        const daycare = await storage.createDaycare(daycarePayload);
+        const daycare = await storage.createDaycare(daycarePayload as any);
 
         // Admin flow: optionally link an existing user as manager/owner
         let ownerLinked = false;
@@ -372,18 +421,34 @@ app.use(async (req: any, _res, next) => {
           .json({ message: "Please choose a daycare for this parent (daycareId)." });
       }
 
-      const existing = await storage.getParentByEmail(email);
+      const resolvedDaycare = await storage.getDaycare(resolvedDaycareId);
+      if (!resolvedDaycare) {
+        return res.status(404).json({ message: "Resolved daycare not found" });
+      }
 
-      // If the parent already exists in another daycare, block non-admins
-      if (existing && !isAdmin(u) && existing.daycareId !== resolvedDaycareId) {
+      const existing = await storage.getParentByEmail(email);
+      const existingInEcosystem = resolvedDaycare.ecosystemId
+        ? await storage.getParentByEmailInEcosystem(email, resolvedDaycare.ecosystemId)
+        : undefined;
+
+      if (existingInEcosystem) {
         return res.status(409).json({
-          message: "Parent already exists at another daycare",
-          existingParentId: existing.id,
-          existingDaycareId: existing.daycareId,
+          message: "Parent already exists in this ecosystem",
+          existingParentId: existingInEcosystem.id,
+          existingDaycareId: existingInEcosystem.daycareId,
+          ecosystemId: existingInEcosystem.ecosystemId,
         });
       }
 
-      // If already exists in this daycare, block duplicate
+      if (existing && existing.ecosystemId && resolvedDaycare.ecosystemId && existing.ecosystemId !== resolvedDaycare.ecosystemId) {
+        return res.status(409).json({
+          message: "Parent exists in a different ecosystem",
+          existingParentId: existing.id,
+          existingEcosystemId: existing.ecosystemId,
+          targetEcosystemId: resolvedDaycare.ecosystemId,
+        });
+      }
+
       if (existing && existing.daycareId === resolvedDaycareId) {
         return res.status(409).json({
           message: "Parent already exists in this daycare",
@@ -395,6 +460,7 @@ app.use(async (req: any, _res, next) => {
         ...raw,
         email,
         daycareId: resolvedDaycareId,
+        ecosystemId: resolvedDaycare.ecosystemId ?? null,
       };
 
       const parent = await storage.createParent(payload as any);
@@ -492,10 +558,24 @@ app.use(async (req: any, _res, next) => {
 
   app.post("/api/parents/lookup", isAuthenticated, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, ecosystemId } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required for lookup" });
 
-    const parent = await storage.getParentByEmail(String(email).trim().toLowerCase());
+    let parent;
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (ecosystemId) {
+      parent = await storage.getParentByEmailInEcosystem(normalizedEmail, Number(ecosystemId));
+    } else if (req.daycareId) {
+      const daycare = await storage.getDaycare(req.daycareId);
+      if (daycare?.ecosystemId) {
+        parent = await storage.getParentByEmailInEcosystem(normalizedEmail, daycare.ecosystemId);
+      }
+    }
+
+    if (!parent) {
+      parent = await storage.getParentByEmail(normalizedEmail);
+    }
+
     if (!parent) return res.status(404).json({ message: "Parent not found in ecosystem" });
 
     const payments = await storage.getPayments(parent.id); // global history for that parent
@@ -511,6 +591,130 @@ app.use(async (req: any, _res, next) => {
     res.status(500).json({ message: "Failed to perform parent lookup" });
   }
 });
+
+  // ===== ECOSYSTEM SAFETY & MONITORING ENDPOINTS =====
+
+  /**
+   * Get parent's complete profile across their entire ecosystem
+   * Shows all daycares, enrollment history, and payment issues
+   */
+  app.get("/api/parents/:id/ecosystem-profile", isAuthenticated, requireMembership("daycareId", { adminBypass: true }), async (req: any, res) => {
+    try {
+      const parentId = Number(req.params.id);
+      const parent = await storage.getParent(parentId);
+      if (!parent) return res.status(404).json({ message: "Parent not found" });
+
+      if (!parent.ecosystemId) {
+        return res.status(400).json({ message: "Parent is not assigned to an ecosystem" });
+      }
+
+      const profile = await storage.getParentEcosystemProfile(parentId, parent.ecosystemId);
+      res.json(profile);
+    } catch (e) {
+      console.error("Error fetching parent ecosystem profile:", e);
+      res.status(500).json({ message: "Failed to fetch parent ecosystem profile" });
+    }
+  });
+
+  /**
+   * Get all alerts for a specific ecosystem (unresolved or all)
+   */
+  app.get("/api/ecosystems/:id/alerts", isAuthenticated, adminOnly, async (req: any, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const unresolved = req.query.unresolved === "true" ? true : undefined;
+      const alertType = req.query.alertType ? String(req.query.alertType) : undefined;
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
+
+      const alerts = await storage.getEcosystemAlerts(ecosystemId, {
+        unresolved,
+        alertType,
+        limit,
+      });
+      res.json(alerts);
+    } catch (e) {
+      console.error("Error fetching ecosystem alerts:", e);
+      res.status(500).json({ message: "Failed to fetch ecosystem alerts" });
+    }
+  });
+
+  /**
+   * Get suspicious activity summary for an ecosystem
+   * Shows: simultaneous enrollments, recent transfers, blacklist status
+   */
+  app.get("/api/ecosystems/:id/suspicious-activity", isAuthenticated, adminOnly, async (req: any, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      
+      // Get high-severity unresolved alerts
+      const alerts = await storage.getEcosystemAlerts(ecosystemId, {
+        unresolved: true,
+        limit: 1000,
+      });
+
+      const suspicious = {
+        totalUnresolvedAlerts: alerts.length,
+        simultaneousEnrollments: alerts.filter(a => a.alertType === "simultaneous_enrollment").length,
+        suspiciousTransfers: alerts.filter(a => a.alertType === "suspicious_transfer").length,
+        enrollmentAttempts: alerts.filter(a => a.alertType === "enrollment_attempt").length,
+        highSeverityCount: alerts.filter(a => a.severity === "high").length,
+        mediumSeverityCount: alerts.filter(a => a.severity === "medium").length,
+        recentAlerts: alerts.slice(0, 20),
+      };
+
+      res.json(suspicious);
+    } catch (e) {
+      console.error("Error fetching suspicious activity summary:", e);
+      res.status(500).json({ message: "Failed to fetch suspicious activity summary" });
+    }
+  });
+
+  /**
+   * Toggle enforcement mode for an ecosystem
+   * enforceAlerts: true = ENFORCE (block suspicious enrollments)
+   * enforceAlerts: false = MONITOR (alert only, allow enrollments)
+   */
+  app.put("/api/ecosystems/:id/enforcement", isAuthenticated, adminOnly, async (req: any, res) => {
+    try {
+      const ecosystemId = Number(req.params.id);
+      const { enforceAlerts } = req.body;
+
+      if (typeof enforceAlerts !== "boolean") {
+        return res.status(400).json({ message: "enforceAlerts must be a boolean" });
+      }
+
+      const ecosystem = await storage.getEcosystem(ecosystemId);
+      if (!ecosystem) return res.status(404).json({ message: "Ecosystem not found" });
+
+      // Update enforcement mode
+      const updated = await storage.updateEcosystem(ecosystemId, { enforceAlerts });
+
+      // Audit the change
+      try {
+        await storage.addAudit({
+          action: "enforcement_toggle",
+          actorId: req.user?.id ?? null,
+          targetType: "ecosystem",
+          targetId: String(ecosystemId),
+          payload: { enforceAlerts, previousEnforceAlerts: ecosystem.enforceAlerts },
+        });
+      } catch (auditErr) {
+        console.warn("Failed to write audit log for enforcement toggle:", auditErr);
+      }
+
+      res.json({
+        id: updated.id,
+        name: updated.name,
+        enforceAlerts: updated.enforceAlerts,
+        mode: updated.enforceAlerts ? "ENFORCE (blocking)" : "MONITOR (alerts only)",
+        message: `Ecosystem switched to ${updated.enforceAlerts ? "ENFORCE" : "MONITOR"} mode`,
+      });
+    } catch (e) {
+      console.error("Error toggling enforcement mode:", e);
+      res.status(500).json({ message: "Failed to toggle enforcement mode" });
+    }
+  });
+
   // -------- Enrollments --------
   app.get("/api/enrollments", isAuthenticated, requireMembership("daycareId", { adminBypass: true }), async (req: any, res) => {
     try {
@@ -544,6 +748,59 @@ app.use(async (req: any, _res, next) => {
           parentTier: parent.paymentTier,
           totalOwed: parent.totalOwed,
         });
+      }
+
+      // ===== ECOSYSTEM SAFETY CHECKS =====
+      const daycare = await storage.getDaycare(parsed.daycareId);
+      if (daycare?.ecosystemId) {
+        const ecosystem = await storage.getEcosystem(daycare.ecosystemId);
+        const allAlerts: any[] = [];
+
+        // 1. Check for simultaneous enrollments in same ecosystem
+        const simultaneousCheck = await storage.checkSimultaneousEnrollments(parsed.childId);
+        if (simultaneousCheck.hasMultipleEnrollments && simultaneousCheck.enrollments.length > 0) {
+          const otherDaycare = simultaneousCheck.enrollments.find(e => e.daycareId !== parsed.daycareId);
+          if (otherDaycare) {
+            allAlerts.push({
+              parentId: parent.id,
+              daycareId: parsed.daycareId,
+              alertType: "simultaneous_enrollment",
+              message: `Alert: ${child.firstName} ${child.lastName} is simultaneously enrolled at ${otherDaycare.daycareName} in the same ecosystem`,
+              severity: "high",
+            });
+          }
+        }
+
+        // 2. Check for recent transfers after payment issues
+        const transferCheck = await storage.checkRecentTransfersAfterDuePayments(parent.id, daycare.ecosystemId, 30);
+        if (transferCheck.hasSuspiciousTransfer && transferCheck.detail.length > 0) {
+          const transfer = transferCheck.detail[0];
+          if (transfer.outstandingPayments > 0) {
+            allAlerts.push({
+              parentId: parent.id,
+              daycareId: parsed.daycareId,
+              alertType: "suspicious_transfer",
+              message: `Alert: Parent has ${transfer.outstandingPayments} outstanding payment(s) and recently moved ${transfer.childName} from ${transfer.fromDaycare} to another center`,
+              severity: "high",
+            });
+          }
+        }
+
+        // Create all alerts
+        for (const alert of allAlerts) {
+          await storage.createAlert(alert as any);
+        }
+
+        // ===== ENFORCEMENT DECISION =====
+        // If ecosystem has enforcement enabled AND there are alerts, BLOCK the enrollment
+        if (ecosystem?.enforceAlerts && allAlerts.length > 0) {
+          return res.status(403).json({
+            message: "Enrollment blocked: Suspicious activity detected. Ecosystem is in Enforce mode.",
+            alerts: allAlerts,
+            enforceMode: true,
+            recommendation: "Contact ecosystem admin to resolve or switch to Monitor mode",
+          });
+        }
       }
 
       const row = await storage.createEnrollment(parsed);
@@ -626,6 +883,137 @@ app.use(async (req: any, _res, next) => {
       }
       console.error("Error creating payment:", error);
       res.status(500).json({ message: "Failed to create payment record" });
+    }
+  });
+
+  app.post("/api/payments/:id/payfast-link", isAuthenticated, ensureDaycareFromPayment, requireMembership("daycareId", { adminBypass: true }), async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const payment = await storage.getPayment(id);
+      if (!payment) return res.status(404).json({ message: "Payment not found" });
+      if (!payment.enrollment?.daycare?.ecosystemId) {
+        return res.status(400).json({ message: "Payment daycare ecosystem not configured" });
+      }
+
+      const ecosystem = await storage.getEcosystem(payment.enrollment.daycare.ecosystemId);
+      if (!ecosystem) {
+        return res.status(404).json({ message: "Ecosystem not found" });
+      }
+      if (!ecosystem.payfastMerchantId || !ecosystem.payfastMerchantKey || !ecosystem.payfastPassphrase) {
+        return res.status(400).json({ message: "PayFast not configured for this ecosystem" });
+      }
+
+      const params: Record<string, string> = {
+        merchant_id: ecosystem.payfastMerchantId,
+        merchant_key: ecosystem.payfastMerchantKey,
+        return_url: process.env.PAYFAST_RETURN_URL || "https://example.com/return",
+        cancel_url: process.env.PAYFAST_CANCEL_URL || "https://example.com/cancel",
+        notify_url: process.env.PAYFAST_NOTIFY_URL || "https://example.com/api/payfast/ipn",
+        m_payment_id: String(payment.id),
+        amount: Number(payment.amount).toFixed(2),
+        item_name: `Daycare invoice #${payment.id}`,
+        email_address: payment.parent?.email ?? "",
+      };
+
+      const queryString = Object.keys(params)
+        .sort()
+        .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+        .join("&");
+      const signature = createHash("md5")
+        .update(`${queryString}&passphrase=${ecosystem.payfastPassphrase}`)
+        .digest("hex");
+      const checkoutUrl = `https://sandbox.payfast.co.za/eng/process?${queryString}&signature=${signature}`;
+
+      const updatedPayment = await storage.updatePayment(payment.id, {
+        gatewayProvider: "payfast",
+        gatewayStatus: "pending",
+        checkoutUrl,
+      });
+      res.json({ checkoutUrl, payment: updatedPayment });
+    } catch (error) {
+      console.error("Error creating PayFast checkout link:", error);
+      res.status(500).json({ message: "Failed to create PayFast checkout link" });
+    }
+  });
+
+  app.post("/api/payfast/ipn", async (req: any, res) => {
+    try {
+      const body = req.body || {};
+      const signature = String(body.signature || "").trim();
+      const paymentId = Number(body.m_payment_id);
+      if (!signature || !paymentId) {
+        return res.status(400).send("Invalid PayFast IPN payload");
+      }
+
+      const params = { ...body };
+      delete params.signature;
+
+      const queryString = Object.keys(params)
+        .sort()
+        .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(String(params[key] ?? ""))}`)
+        .join("&");
+
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        console.warn("PayFast IPN: payment not found", paymentId);
+        return res.status(404).send("Payment not found");
+      }
+
+      const ecosystemId = payment.enrollment?.daycare?.ecosystemId;
+      if (!ecosystemId) {
+        console.warn("PayFast IPN: payment has no ecosystem", paymentId);
+        return res.status(400).send("Ecosystem not configured");
+      }
+
+      const ecosystem = await storage.getEcosystem(ecosystemId);
+      if (!ecosystem) {
+        return res.status(404).send("Ecosystem not found");
+      }
+
+      const expectedSignature = createHash("md5")
+        .update(`${queryString}&passphrase=${ecosystem.payfastPassphrase ?? ""}`)
+        .digest("hex");
+
+      if (expectedSignature !== signature) {
+        console.warn("PayFast IPN invalid signature", { paymentId, expectedSignature, signature });
+        return res.status(400).send("Invalid signature");
+      }
+
+      const paymentStatus = String(body.payment_status || "").toLowerCase();
+      const gatewayStatus = paymentStatus === "complete" ? "complete" : paymentStatus === "failed" ? "failed" : "pending";
+      const updatedFields: any = {
+        gatewayStatus,
+        gatewayReference: body.pf_payment_id ? String(body.pf_payment_id) : null,
+      };
+
+      if (gatewayStatus === "complete") {
+        updatedFields.status = "paid";
+        updatedFields.paidDate = new Date().toISOString();
+      }
+
+      const updatedPayment = await storage.updatePayment(paymentId, updatedFields);
+
+      try {
+        await storage.addAudit({
+          action: "payfast_ipn",
+          actorId: null,
+          targetType: "payment",
+          targetId: String(paymentId),
+          daycareId: payment.enrollment?.daycare?.id ?? null,
+          payload: {
+            payment_status: body.payment_status,
+            pf_payment_id: body.pf_payment_id,
+            gatewayStatus,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("PayFast IPN audit error", auditErr);
+      }
+
+      res.send("OK");
+    } catch (error) {
+      console.error("PayFast IPN error:", error);
+      res.status(500).send("PayFast IPN processing failed");
     }
   });
 

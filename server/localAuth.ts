@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
 import { db } from "./db";
-import { users, daycares, memberships } from "@shared/schema";
+import { users, daycares, memberships, ecosystems } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 const isProd = process.env.NODE_ENV === "production";
@@ -96,6 +96,10 @@ export function setupLocalAuth(app: express.Express) {
       ? null
       : Number(capacityRaw);
 
+    const ecosystemId = req.body.ecosystemId ? Number(req.body.ecosystemId) : undefined;
+    const ecosystemName = norm(req.body.ecosystemName) || daycareName;
+    const ecosystemAccountId = norm(req.body.ecosystemAccountId) || randomUUID();
+
     // logged-out owner credentials (if creating first user)
     const email = normEmail(req.body.email);
     const password = String(req.body.password ?? "");
@@ -126,11 +130,55 @@ export function setupLocalAuth(app: express.Express) {
         return res.status(409).json({ message: "A daycare with this name & address already exists" });
       }
 
+      let resolvedEcosystemId: number | null = null;
+
+      // If the caller wants to place the new daycare in a specific ecosystem,
+      // validate that access for non-admins or use the active daycare ecosystem.
+      if (ecosystemId) {
+        if (loggedIn && !isAdmin(req.session.user)) {
+          const [activeDaycare] = await db
+            .select({ ecosystemId: daycares.ecosystemId })
+            .from(daycares)
+            .where(eq(daycares.id, req.session.user.activeDaycareId ?? 0));
+
+          if (!activeDaycare || activeDaycare.ecosystemId !== ecosystemId) {
+            return res.status(403).json({ message: "Cannot add a daycare to a different ecosystem" });
+          }
+        }
+        resolvedEcosystemId = ecosystemId;
+      }
+
+      if (loggedIn && !resolvedEcosystemId && req.session.user.activeDaycareId) {
+        const [activeDaycare] = await db
+          .select({ ecosystemId: daycares.ecosystemId })
+          .from(daycares)
+          .where(eq(daycares.id, req.session.user.activeDaycareId));
+        if (activeDaycare?.ecosystemId) resolvedEcosystemId = activeDaycare.ecosystemId;
+      }
+
       const result = db.transaction((tx) => {
+        let ecosystemRow: any = null;
+
+        if (!loggedIn) {
+          const ecoInsert = tx
+            .insert(ecosystems)
+            .values({
+              accountId: ecosystemAccountId,
+              name: ecosystemName,
+              description: `Ecosystem created for ${daycareName}`,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .run();
+          resolvedEcosystemId = Number(ecoInsert.lastInsertRowid);
+        }
+
         // 1) create daycare
         const dcInsert = tx
           .insert(daycares)
           .values({
+            ecosystemId: resolvedEcosystemId,
             name: daycareName,
             address,
             phone,
@@ -185,8 +233,8 @@ export function setupLocalAuth(app: express.Express) {
             password: hashed,
             firstName,
             lastName,
-            role: "owner",              // global role
-            activeDaycareId: daycareId, // start in this org
+            role: "owner",
+            activeDaycareId: daycareId,
             createdAt: new Date(),
             updatedAt: new Date(),
           }).run();
@@ -202,26 +250,29 @@ export function setupLocalAuth(app: express.Express) {
         }
 
         const dc = tx.select().from(daycares).where(eq(daycares.id, daycareId)).all()[0];
-        return { daycare: dc, createdUser, daycareId };
+        return { daycare: dc, createdUser, daycareId, ecosystemId: resolvedEcosystemId };
       });
 
       // If we created a brand-new user, log them in
       if (result.createdUser) {
         const sessionUser = await buildSessionUser(result.createdUser);
         (req.session as any).user = sessionUser;
-        return res.json({ user: sessionUser, daycare: result.daycare });
+        return res.json({ user: sessionUser, daycare: result.daycare, ecosystemId: result.ecosystemId });
       }
 
       // If we attached to the current user, refresh their session
       const [freshUser] = await db.select().from(users).where(eq(users.id, (req.session as any).user.id));
       const refreshed = await buildSessionUser(freshUser);
       (req.session as any).user = refreshed;
-      return res.json({ user: refreshed, daycare: result.daycare });
+      return res.json({ user: refreshed, daycare: result.daycare, ecosystemId: result.ecosystemId });
     } catch (e: any) {
       console.error("register-daycare error", e);
       // choose better status codes for common cases
       if (e?.message === "Email already in use") return res.status(409).json({ message: e.message });
       if (e?.message === "Missing email or password for first owner") return res.status(400).json({ message: e.message });
+      if (e?.message?.includes("UNIQUE constraint failed: ecosystems.account_id")) {
+        return res.status(409).json({ message: "Ecosystem accountId already exists" });
+      }
       return res.status(500).json({ message: "Registration failed" });
     }
   });
